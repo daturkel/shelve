@@ -171,7 +171,7 @@ body {
    * without this they hang visibly below the adjacent folder-name
    * baseline instead of reading as centered on the row. */
   position: relative;
-  top: -6px;
+  top: -3px;
 }
 .collapse-toggle:hover {
   color: var(--text);
