@@ -21,6 +21,21 @@ const TAB_MIME = "application/x-shelve-tab";
 const ENTRY_MIME = "application/x-shelve-entry";
 const FOLDER_MIME = "application/x-shelve-folder";
 
+/** A real favicon, or a fixed-size placeholder — so entries/tabs without
+ * one don't shift their title out of alignment with ones that have an
+ * icon. */
+function buildFaviconEl(url: string | null | undefined): HTMLElement {
+  if (url) {
+    const icon = document.createElement("img");
+    icon.className = "favicon";
+    icon.src = url;
+    return icon;
+  }
+  const placeholder = document.createElement("div");
+  placeholder.className = "favicon favicon-placeholder";
+  return placeholder;
+}
+
 let state: State = await loadState();
 const merged = await pullAndMerge(state);
 if (merged) {
@@ -169,6 +184,13 @@ function buildToolbar(): HTMLElement {
     render();
   };
   toolbar.appendChild(tabsToggle);
+
+  const settingsBtn = document.createElement("button");
+  settingsBtn.className = "icon-btn";
+  settingsBtn.textContent = "⚙";
+  settingsBtn.title = "Settings";
+  settingsBtn.onclick = () => chrome.runtime.openOptionsPage();
+  toolbar.appendChild(settingsBtn);
 
   return toolbar;
 }
@@ -349,12 +371,7 @@ function buildEntryEl(entry: Entry): HTMLElement {
   el.className = "entry";
   el.draggable = true;
 
-  if (entry.favicon_url) {
-    const icon = document.createElement("img");
-    icon.className = "favicon";
-    icon.src = entry.favicon_url;
-    el.appendChild(icon);
-  }
+  el.appendChild(buildFaviconEl(entry.favicon_url));
 
   const title = document.createElement("div");
   title.className = "title";
@@ -430,12 +447,7 @@ function buildTabItem(tab: chrome.tabs.Tab): HTMLElement {
   el.className = "tab-item";
   el.draggable = true;
 
-  if (tab.favIconUrl) {
-    const icon = document.createElement("img");
-    icon.className = "favicon";
-    icon.src = tab.favIconUrl;
-    el.appendChild(icon);
-  }
+  el.appendChild(buildFaviconEl(tab.favIconUrl));
 
   const title = document.createElement("div");
   title.className = "title";

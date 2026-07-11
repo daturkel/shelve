@@ -221,6 +221,13 @@ body {
   flex-shrink: 0;
   border-radius: 3px;
 }
+
+/* Fallback for entries/tabs with no favicon — same footprint as a real
+ * icon so titles stay aligned either way. */
+.favicon-placeholder {
+  background: var(--border);
+  border-radius: 3px;
+}
 .entry .title {
   overflow: hidden;
   text-overflow: ellipsis;
