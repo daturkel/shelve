@@ -151,6 +151,10 @@ There's no accounts system — it's designed for one person's own devices.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for the data model, sync design, and repo layout.
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
+
 ## License
 
 MIT — see [LICENSE](LICENSE).
