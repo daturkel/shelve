@@ -160,7 +160,9 @@ body {
   outline: 1px dashed var(--accent);
 }
 .collapse-toggle {
-  color: var(--text-dim);
+  /* Same brightness as open-tab titles (var(--text), not --text-dim) —
+   * this is a primary navigation control, not secondary chrome. */
+  color: var(--text);
   cursor: pointer;
   font-size: 26px;
   width: 22px;
@@ -173,15 +175,12 @@ body {
   position: relative;
   top: -3px;
 }
-.collapse-toggle:hover {
-  color: var(--text);
-}
 .folder-name {
   font-weight: 600;
   font-size: 13px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text-dim);
+  color: var(--text);
   cursor: text;
 }
 .folder-delete {

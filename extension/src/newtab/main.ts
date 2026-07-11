@@ -268,7 +268,7 @@ function buildFolderSection(folder: Folder, query: string, workspaceFolders: Fol
   // invisible strip to reach it.
   const del = document.createElement("div");
   del.className = "folder-delete";
-  del.textContent = "Delete";
+  del.textContent = "(delete)";
   del.onclick = async (ev) => {
     ev.stopPropagation();
     const ok = await showConfirm(`Delete folder "${folder.name}" and its entries?`);
