@@ -162,8 +162,8 @@ body {
 .collapse-toggle {
   color: var(--text-dim);
   cursor: pointer;
-  font-size: 16px;
-  width: 16px;
+  font-size: 26px;
+  width: 22px;
   flex-shrink: 0;
   text-align: center;
   line-height: 1;
