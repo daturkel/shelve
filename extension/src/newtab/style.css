@@ -237,21 +237,8 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.entry .entry-note-btn {
-  margin-left: auto;
-  color: var(--text-dim);
-  visibility: hidden;
-  font-size: 12px;
-  flex-shrink: 0;
-}
-.entry:hover .entry-note-btn {
-  visibility: visible;
-}
-.entry .entry-note-btn:hover {
-  color: var(--text);
-}
-
 .entry .entry-delete {
+  margin-left: auto;
   color: var(--text-dim);
   visibility: hidden;
   font-size: 12px;
@@ -273,13 +260,21 @@ body {
   background: var(--bg-hover);
 }
 
-.entry-add-note {
+/* Small, unobtrusive — not a full-width box — since it sits alongside
+ * real entries in the grid and shouldn't compete with them visually. */
+.entry.entry-add-link {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  justify-content: center;
+  justify-self: start;
   color: var(--text-dim);
   cursor: pointer;
   border: 1px dashed var(--border);
-  justify-content: center;
+  border-radius: 8px;
+  font-size: 15px;
 }
-.entry-add-note:hover {
+.entry.entry-add-link:hover {
   color: var(--text);
   border-color: var(--text-dim);
 }

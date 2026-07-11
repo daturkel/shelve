@@ -12,11 +12,10 @@ import {
   createEntry,
   moveEntry,
   deleteEntry,
-  updateEntryNote,
 } from "../lib/storage";
 import { pushResource, pushDelete, pullAndMerge, pushAll } from "../lib/sync";
 import { getUiState, setUiState } from "../lib/uiState";
-import { showPrompt, showConfirm, showTextarea } from "../lib/modal";
+import { showPrompt, showConfirm } from "../lib/modal";
 
 const TAB_MIME = "application/x-shelve-tab";
 const ENTRY_MIME = "application/x-shelve-entry";
@@ -367,7 +366,7 @@ function buildFolderSection(folder: Folder, query: string, workspaceFolders: Fol
     }
 
     if (!query) {
-      grid.appendChild(buildAddNoteTile(folder));
+      grid.appendChild(buildAddLinkTile(folder));
     }
 
     section.appendChild(grid);
@@ -409,23 +408,28 @@ function buildFolderSection(folder: Folder, query: string, workspaceFolders: Fol
   return section;
 }
 
-/** Persistent grid tile for adding a standalone note-only entry (no url)
- * to a folder — the data model has always supported this
- * (CHECK(url IS NOT NULL OR note IS NOT NULL) in the D1 schema), but
- * nothing in the UI exposed a way to create one until now. */
-function buildAddNoteTile(folder: Folder): HTMLElement {
+/** Small "+" tile for manually adding a link, for URLs you have but
+ * aren't currently open as a tab (drag-from-open-tabs is the other way
+ * to add an entry, but only covers what's already open). */
+function buildAddLinkTile(folder: Folder): HTMLElement {
   const el = document.createElement("div");
-  el.className = "entry entry-add-note";
-  el.textContent = "+ Add note";
-  el.title = "Add a standalone note to this folder";
+  el.className = "entry entry-add-link";
+  el.textContent = "+";
+  el.title = "Add a link";
   el.onclick = async () => {
-    const note = await showTextarea("New note");
-    if (!note) return;
-    const entry = createEntry(state, folder.id, { note });
+    const rawUrl = await showPrompt("Add link (URL)");
+    if (!rawUrl) return;
+    const url = normalizeUrl(rawUrl);
+    const title = await showPrompt("Title (optional)", url);
+    const entry = createEntry(state, folder.id, { url, title: title || url });
     await rerender();
     void pushResource("entries", entry);
   };
   return el;
+}
+
+function normalizeUrl(input: string): string {
+  return /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(input) ? input : `https://${input}`;
 }
 
 function buildEntryEl(entry: Entry): HTMLElement {
@@ -436,6 +440,9 @@ function buildEntryEl(entry: Entry): HTMLElement {
   // Note-only entries (no url) get a distinct glyph instead of the
   // generic favicon placeholder, so they read as "a note" at a glance
   // rather than looking like a URL entry that's merely missing its icon.
+  // (Creating/editing notes via the UI is temporarily disabled — see
+  // design doc — but existing note-only entries, e.g. from a native
+  // backup import, still render correctly.)
   if (entry.url) {
     el.appendChild(buildFaviconEl(entry.favicon_url));
   } else {
@@ -450,24 +457,6 @@ function buildEntryEl(entry: Entry): HTMLElement {
   title.textContent = entry.title || entry.url || entry.note || "Untitled";
   el.appendChild(title);
 
-  // A single-click on the entry opens its URL (below), so note editing
-  // can't be a click/dblclick on the entry itself — double-clicking a url
-  // entry would fire the single-click open *and* the dblclick edit at
-  // once. Dedicated hover-revealed button instead, same pattern as delete.
-  const noteBtn = document.createElement("div");
-  noteBtn.className = "entry-note-btn";
-  noteBtn.textContent = "(note)";
-  noteBtn.title = entry.note ? "Edit note" : "Add note";
-  noteBtn.onclick = async (ev) => {
-    ev.stopPropagation();
-    const note = await showTextarea(entry.note ? "Edit note" : "Add note", entry.note ?? "");
-    if (!note) return;
-    updateEntryNote(state, entry.id, note);
-    await rerender();
-    void pushResource("entries", entry);
-  };
-  el.appendChild(noteBtn);
-
   const del = document.createElement("div");
   del.className = "entry-delete";
   del.textContent = "✕";
@@ -480,7 +469,7 @@ function buildEntryEl(entry: Entry): HTMLElement {
   el.appendChild(del);
 
   el.onclick = (ev) => {
-    if (ev.target === del || ev.target === noteBtn) return;
+    if (ev.target === del) return;
     if (entry.url) window.open(entry.url, "_blank");
   };
 
