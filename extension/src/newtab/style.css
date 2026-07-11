@@ -167,6 +167,11 @@ body {
   flex-shrink: 0;
   text-align: center;
   line-height: 1;
+  /* The ▾/▸ glyphs sit low within their own em box at this size —
+   * without this they hang visibly below the adjacent folder-name
+   * baseline instead of reading as centered on the row. */
+  position: relative;
+  top: -6px;
 }
 .collapse-toggle:hover {
   color: var(--text);
