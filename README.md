@@ -17,7 +17,7 @@ Shelve has no such ceiling, no accounts system, and no third party (not even the
 ## Status
 
 Functional, pre-1.0.
-The core save/sync/organize workflow works end-to-end and is unit- and integration-tested; a few nice-to-haves (Toby-parity open-tabs actions, a trash view, tags) are still open — see [ARCHITECTURE.md](ARCHITECTURE.md#open-items) for the current list.
+The core save/sync/organize workflow works end-to-end and is unit- and integration-tested; a few nice-to-haves (Toby-parity open-tabs actions, a trash view, tags) are still open.
 
 ## Setup
 

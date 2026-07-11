@@ -5,15 +5,23 @@ For "how do I deploy this," see [README.md](README.md).
 
 ## System overview
 
-```
-┌─────────────────────┐         HTTPS, Bearer token        ┌──────────────────────┐
-│   Chrome extension   │ ──────────────────────────────────▶ Cloudflare Worker    │
-│  (newtab / popup /   │ ◀────────────────────────────────── (worker/src/index.ts)│
-│   options / bg)      │         JSON                        └──────────┬───────────┘
-│                       │                                                │
-│  chrome.storage.local │                                        D1 (SQLite)
-│  (local cache)        │                                    workspaces/folders/entries
-└──────────────────────┘                                     └──────────────────────┘
+```mermaid
+flowchart LR
+    subgraph Extension["Chrome extension"]
+        direction TB
+        UI["newtab / popup / options / background"]
+        Cache[("chrome.storage.local<br/>(local cache)")]
+        UI --- Cache
+    end
+
+    subgraph Backend["Your Cloudflare account"]
+        direction TB
+        Worker["Cloudflare Worker<br/>worker/src/index.ts"]
+        D1[("D1 (SQLite)<br/>workspaces / folders / entries")]
+        Worker --> D1
+    end
+
+    UI <-->|"HTTPS, Bearer token, JSON"| Worker
 ```
 
 Each deployment is single-user: one person's own devices, talking to one Worker + one D1 database, authenticated with one shared secret.
@@ -64,7 +72,7 @@ The `default` workspace id is fixed (not a random UUID) — every fresh device a
 
 The "open tabs" panel (browse currently-open tabs, drag into a folder) has no schema — it's rendered live from `chrome.tabs.query()` in the extension, not stored anywhere.
 
-**Not yet in the schema:** tags, screenshots, note-editing UI (the `note` column and note-only entries are fully supported end to end, but the UI to create/edit them is currently disabled pending a better interaction design — see Open Items).
+**Not yet in the schema:** tags, screenshots, note-editing UI (the `note` column and note-only entries are fully supported end to end, but the UI to create/edit them is currently disabled pending a better interaction design).
 
 ## Sync model
 
@@ -90,7 +98,7 @@ This is the result of two earlier designs that didn't work:
 - **Hard `DELETE` plus a separate tombstone table** fixed the write-safety problem but broke *delete propagation*: the client's merge logic deliberately never removes a local record just because it's absent from a `GET /state` response (same wipe-avoidance principle), so a device pulling after another device's hard-delete would never learn the record was gone — it would keep it forever.
 
 Soft-delete via a `deleted_at` column solves both: still a single targeted write (no wipe risk), and `deleted_at` flows through the exact same "newer `updated_at` wins" merge logic as any other field — a soft-deleted record simply out-recencies a stale non-deleted copy on the next pull, with zero special-cased deletion code.
-It also means content is retained rather than erased, which is what makes a future trash view close to free (see Open Items).
+It also means content is retained rather than erased, which is what makes a future trash view relatively cheap to add.
 
 **Practical implication:** normal use of Shelve can never destroy your data through a sync bug — the worst case is a stale write losing a race, which self-heals on the next sync.
 Cloudflare D1's own point-in-time recovery ("Time Travel," see the README FAQ) is the backstop one layer below this, for infrastructure-level issues rather than application logic.
@@ -158,17 +166,3 @@ shelve/
   ARCHITECTURE.md             # this file
   LICENSE
 ```
-
-## Open items
-
-Not blocking, roughly in priority order:
-
-- **Notes UI** — the schema and storage layer fully support note-only entries and notes attached to link entries, but the UI to create/edit them is currently disabled; an earlier attempt read as poor UX (competed visually with real entries) and was pulled pending a better interaction design.
-- **Open tabs panel parity with Toby** — currently read-only browsing plus drag-to-save.
-  Toby additionally supports: click a tab to focus it, a hover-reveal close button per tab, drag-to-reorder tabs within/between windows, and multi-select + bulk "add to collection."
-- **Browsable trash** — soft-delete already retains content, so this is close to just "a view over rows where `deleted_at IS NOT NULL`" plus a restore action; no retention/GC policy decided yet (deleted rows currently accumulate forever, fine at personal-use data volumes).
-- **Tags** — Toby has tag-filtering; deferred as an additive schema migration if wanted later.
-- **Screenshots per entry** — nice-to-have, would need image storage (e.g. Cloudflare R2); not required (unlike favicons).
-- **CLI** — the Worker is just a token-authed HTTP API, so a CLI would be a thin client reusing the same routes/auth; no backend changes needed, just not built yet.
-- **Chrome Web Store distribution** — currently load-unpacked only.
-  Store listing is viable (review is of the extension code, not the user-configured backend it talks to) but not done.
