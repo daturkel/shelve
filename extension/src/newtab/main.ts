@@ -301,6 +301,11 @@ function buildFolderSection(folder: Folder, query: string, workspaceFolders: Fol
   const del = document.createElement("div");
   del.className = "folder-delete";
   del.textContent = "(delete)";
+  // Without its own title, this inherits the header's "Click to
+  // expand/collapse" tooltip (title attributes cascade to children that
+  // don't set their own) — confusing since hovering delete looked like it
+  // would toggle collapse instead.
+  del.title = "Delete folder and its entries";
   del.onclick = async (ev) => {
     ev.stopPropagation();
     const ok = await showConfirm(`Delete folder "${folder.name}" and its entries?`);
