@@ -91,6 +91,15 @@ Rebuilding alone doesn't update the loaded extension — unpacked extensions don
 
 ## FAQ
 
+**What is Wrangler?**
+Cloudflare's official CLI for developing and deploying Workers, D1 databases, and the rest of the Cloudflare developer platform.
+Every `npx wrangler ...` command in Setup uses it — `npx` runs the version pinned in `worker/package.json` on the fly, so you never install anything globally just to deploy Shelve.
+
+**Should I install Node.js globally or per-user?**
+Either works, but a per-user install is generally the better default if you do any other JS/TS development: a [version manager](https://github.com/nvm-sh/nvm) (nvm, fnm, volta, etc.) installs Node under your home directory, needs no `sudo`, and lets you switch Node versions per project.
+A global/system install (the official installer, or a package manager like Homebrew) is simpler for a single-purpose machine, but can require elevated permissions for global npm installs and only lets you have one Node version at a time.
+This repo doesn't care which you use, only that `node`/`npm` end up on your `PATH`.
+
 **Is my data private?**
 Yes — it lives only in the D1 database in your own Cloudflare account.
 Nothing is sent anywhere else, and the developer has no access to it.
@@ -121,6 +130,18 @@ Day-to-day, Shelve's own sync design already avoids destructive operations: dele
 **What if I lose my API token?**
 Generate a new one and re-run `wrangler secret put API_TOKEN` on the Worker, then update it in each device's extension options page.
 Your data in D1 is untouched — the token only gates access to it.
+
+**How do I revoke API access (e.g. a lost or compromised device)?**
+There's only one shared `API_TOKEN` per deployment, not one per device, so revoking access means rotating that single secret — which immediately invalidates it everywhere, including your other devices:
+
+```bash
+openssl rand -hex 32
+npx wrangler secret put API_TOKEN
+```
+
+Update the new token on every device you want to keep syncing.
+Any device you don't update (the lost/compromised one) starts getting 401s and can no longer read or write your data.
+There's no way to revoke just one device's access while leaving others on the old token — a real limitation of the single-shared-secret design, acceptable given the intended use case (your own personal devices, not a team).
 
 **Can other people see or use my deployment?**
 Only if they have your Worker URL *and* your API token.
