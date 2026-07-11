@@ -16,6 +16,7 @@ import {
 import { pushResource, pushDelete, pullAndMerge, pushAll } from "../lib/sync";
 import { getUiState, setUiState } from "../lib/uiState";
 import { showPrompt, showConfirm } from "../lib/modal";
+import { fetchLinkMetadata } from "../lib/linkMetadata";
 
 const TAB_MIME = "application/x-shelve-tab";
 const ENTRY_MIME = "application/x-shelve-entry";
@@ -24,16 +25,24 @@ const FOLDER_MIME = "application/x-shelve-folder";
 /** A real favicon, or a fixed-size placeholder — so entries/tabs without
  * one don't shift their title out of alignment with ones that have an
  * icon. */
+function buildPlaceholderFavicon(): HTMLElement {
+  const placeholder = document.createElement("div");
+  placeholder.className = "favicon favicon-placeholder";
+  return placeholder;
+}
+
 function buildFaviconEl(url: string | null | undefined): HTMLElement {
   if (url) {
     const icon = document.createElement("img");
     icon.className = "favicon";
     icon.src = url;
+    // A manually-added link's favicon.ico guess (linkMetadata.ts) often
+    // doesn't exist — swap to the same placeholder used for no-favicon
+    // entries rather than showing a broken-image icon.
+    icon.onerror = () => icon.replaceWith(buildPlaceholderFavicon());
     return icon;
   }
-  const placeholder = document.createElement("div");
-  placeholder.className = "favicon favicon-placeholder";
-  return placeholder;
+  return buildPlaceholderFavicon();
 }
 
 let state: State = await loadState();
@@ -425,8 +434,14 @@ function buildAddLinkTile(folder: Folder): HTMLElement {
     const rawUrl = await showPrompt("Add link (URL)");
     if (!rawUrl) return;
     const url = normalizeUrl(rawUrl);
-    const title = await showPrompt("Title (optional)", url);
-    const entry = createEntry(state, folder.id, { url, title: title || url });
+    const meta = await fetchLinkMetadata(url);
+    // One Enter should be enough for the common case: if the fetch found
+    // a real page title, use it directly rather than asking again with
+    // it as the default. Only fall back to a second prompt when the
+    // fetch didn't get a title (blocked, timed out, no <title> tag).
+    const title = meta.title ?? (await showPrompt("Title", url));
+    if (!title) return;
+    const entry = createEntry(state, folder.id, { url, title, favicon_url: meta.faviconUrl });
     await rerender();
     void pushResource("entries", entry);
   };
