@@ -86,9 +86,10 @@ extension's Chrome profile persists at `/tmp/shelve-ext-profile`
 | `dblclick <css-sel>` | double-click — how rename is triggered (`.folder-name`, `.rail-item`) |
 | `drag <fromSel> -> <toSel>` | drag-and-drop `fromSel` onto `toSel` — **note the `->` separator**, not a space (see Gotchas) |
 | `eval <js>` | `page.evaluate()`, prints JSON. Also the escape hatch for clicking hover-only elements: `eval document.querySelector(".folder-delete").click()` bypasses Playwright's visibility check since it's a plain DOM method call |
+| `upload <css-sel> -> <filePath>` | `page.locator(sel).setInputFiles(path)` — works on `<input type="file" hidden>` without a real file-picker dialog. Only accepts a single plain CSS selector (no Playwright `>>` chaining) since it's dispatched through `page.locator()` directly rather than `page.evaluate()` |
 | `wait <ms>` | sleep before the next command (default 500ms) — needed after any mutation before `quit` or checking sync state, since sync pushes are fire-and-forget (see Gotchas) |
 | `storage` | dumps `chrome.storage.local.get("shelve_state")` — the actual persisted app state |
-| `text <css-sel>` | prints `innerText` of the first match |
+| `text <css-sel>` | prints `innerText` of the first match — plain `document.querySelector`, so it does **not** support Playwright locator chaining like `>> nth=1`; if a page has multiple matches for the same selector, use `eval` with a manual `document.querySelectorAll(...)[i]` instead |
 | `reload` | reloads the current page |
 | `quit` | closes the browser context, exits |
 
@@ -190,6 +191,14 @@ EOF
 
 ## Gotchas
 
+- **`click-text` on short generic labels can silently no-op.**
+  `click-text Save` failed once against the note-editor modal's "Save"
+  button (no error thrown, modal just stayed open) while the identical
+  flow worked immediately via `click .modal-btn-primary`. Root cause not
+  pinned down (didn't recur) — if a `click-text` on a common word doesn't
+  seem to be taking effect, fall back to a specific CSS selector
+  (`.modal-btn-primary`, `.modal-btn-danger`, etc.) rather than retrying
+  the same text match.
 - **`drag` can silently no-op right after another re-render** (e.g. a
   collapse-toggle click immediately before a folder-reorder `drag`).
   Playwright's synthetic drag reports success (no error, "dragged ..."

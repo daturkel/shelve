@@ -11,6 +11,7 @@ import {
   createEntry,
   moveEntry,
   deleteEntry,
+  updateEntryNote,
 } from "./storage";
 
 // Minimal in-memory mock of chrome.storage.local, just enough for
@@ -244,5 +245,31 @@ describe("reorderFolders", () => {
     reorderFolders(state, wsA.id, [a1.id]);
 
     expect(b1.position).toBe(originalB1Position);
+  });
+});
+
+describe("note-only entries", () => {
+  it("createEntry supports a note with no url", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "Notes");
+
+    const entry = createEntry(state, folder.id, { note: "just a note" });
+
+    expect(entry.url).toBeNull();
+    expect(entry.note).toBe("just a note");
+  });
+
+  it("updateEntryNote sets the note and bumps updated_at", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "Notes");
+    const entry = createEntry(state, folder.id, { url: "https://example.com" });
+    const originalUpdatedAt = entry.updated_at;
+
+    const updated = updateEntryNote(state, entry.id, "attached note");
+
+    expect(updated.note).toBe("attached note");
+    expect(updated.updated_at).toBeGreaterThanOrEqual(originalUpdatedAt);
   });
 });

@@ -90,6 +90,17 @@ const COMMANDS = {
     console.log("screenshot:", f);
   },
 
+  // Usage: upload <cssSelector> -> <absolute file path>. Sets an
+  // <input type="file">'s files without needing a real file picker dialog.
+  async upload(arg) {
+    if (!page) return console.log("ERROR: launch first");
+    const [sel, ...rest] = (arg || "").split("->");
+    const filePath = rest.join("->").trim();
+    if (!sel?.trim() || !filePath) return console.log("usage: upload <cssSelector> -> <filePath>");
+    await page.locator(sel.trim()).setInputFiles(filePath);
+    console.log("uploaded", filePath, "to", sel.trim());
+  },
+
   async dialog(text) {
     // Arms the next window.prompt()/confirm() to auto-accept with `text`.
     // Must be called on the line BEFORE the click that triggers the dialog.

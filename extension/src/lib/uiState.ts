@@ -14,7 +14,7 @@ export interface UiState {
    * shows Chrome's real default new-tab page untouched — there is no way
    * to get that back once a static manifest override has claimed it, so
    * "optional" is implemented as a conditional runtime redirect instead
-   * of a static override. See plans/shelve-extension.md. */
+   * of a static override. */
   showOnNewTab: boolean;
 }
 

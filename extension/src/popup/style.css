@@ -135,6 +135,28 @@ body {
   outline: 1px solid var(--accent);
 }
 
+.modal-textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 4px;
+}
+.modal-textarea:focus {
+  outline: 1px solid var(--accent);
+}
+
+.modal-hint {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+
 .modal-actions {
   display: flex;
   justify-content: flex-end;

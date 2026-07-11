@@ -1,6 +1,32 @@
 import { getConfig, setConfig } from "../lib/config";
-import { fetchRemoteState } from "../lib/sync";
+import { fetchRemoteState, mergeState, pushAll, type RemoteState } from "../lib/sync";
 import { getUiState, setUiState } from "../lib/uiState";
+import { loadState, saveState } from "../lib/storage";
+import { importToby, exportToby, isTobyExport } from "../lib/tobyImport";
+
+function downloadJson(filename: string, data: unknown): void {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function readFileAsJson(file: File): Promise<unknown> {
+  return JSON.parse(await file.text());
+}
+
+function isRemoteState(value: unknown): value is RemoteState {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Array.isArray((value as { workspaces?: unknown }).workspaces) &&
+    Array.isArray((value as { folders?: unknown }).folders) &&
+    Array.isArray((value as { entries?: unknown }).entries)
+  );
+}
 
 const app = document.getElementById("app")!;
 
@@ -104,6 +130,124 @@ async function render() {
         : `Connected. Found ${folderCount} folder${folderCount === 1 ? "" : "s"} and ${entryCount} saved tab${entryCount === 1 ? "" : "s"} — open a new tab to sync them in.`;
     status.className = "status success";
   };
+
+  // ---------- Data: backup and Toby migration ----------
+
+  const dataTitle = document.createElement("h2");
+  dataTitle.textContent = "Data";
+  wrap.appendChild(dataTitle);
+
+  const dataHint = document.createElement("p");
+  dataHint.className = "hint";
+  dataHint.textContent = "Back up your folders, or migrate to/from Toby.";
+  wrap.appendChild(dataHint);
+
+  const dataStatus = document.createElement("div");
+  dataStatus.className = "status";
+
+  function setDataStatus(text: string, kind: "" | "success" | "error" = "") {
+    dataStatus.textContent = text;
+    dataStatus.className = kind ? `status ${kind}` : "status";
+  }
+
+  // Native Shelve backup: reuses mergeState() on import, since our own
+  // ids are meaningful — safe to re-import the same backup file twice,
+  // or one that partially overlaps what's already local.
+  const backupRow = document.createElement("div");
+  backupRow.className = "data-row";
+
+  const exportBackupBtn = document.createElement("button");
+  exportBackupBtn.className = "menu-btn";
+  exportBackupBtn.textContent = "Export backup";
+  exportBackupBtn.onclick = async () => {
+    const state = await loadState();
+    const date = new Date().toISOString().slice(0, 10);
+    downloadJson(`shelve-backup-${date}.json`, state);
+    setDataStatus("Backup downloaded.", "success");
+  };
+  backupRow.appendChild(exportBackupBtn);
+
+  const importBackupBtn = document.createElement("button");
+  importBackupBtn.className = "menu-btn";
+  importBackupBtn.textContent = "Import backup";
+  const backupFileInput = document.createElement("input");
+  backupFileInput.type = "file";
+  backupFileInput.accept = ".json";
+  backupFileInput.hidden = true;
+  importBackupBtn.onclick = () => backupFileInput.click();
+  backupFileInput.onchange = async () => {
+    const file = backupFileInput.files?.[0];
+    backupFileInput.value = "";
+    if (!file) return;
+    try {
+      const parsed = await readFileAsJson(file);
+      if (!isRemoteState(parsed)) {
+        setDataStatus("That doesn't look like a Shelve backup file.", "error");
+        return;
+      }
+      const local = await loadState();
+      const merged = mergeState(local, parsed);
+      await saveState(merged);
+      void pushAll(merged);
+      setDataStatus("Backup imported and merged in.", "success");
+    } catch (e) {
+      setDataStatus(`Couldn't read that file: ${e instanceof Error ? e.message : String(e)}`, "error");
+    }
+  };
+  backupRow.append(importBackupBtn, backupFileInput);
+  wrap.appendChild(backupRow);
+
+  // Toby import/export: fresh ids on import (Toby's data has no id
+  // compatible with ours), note-only entries dropped on export (Toby's
+  // card format is always URL-backed), tags ignored both ways.
+  const tobyRow = document.createElement("div");
+  tobyRow.className = "data-row";
+
+  const exportTobyBtn = document.createElement("button");
+  exportTobyBtn.className = "menu-btn";
+  exportTobyBtn.textContent = "Export to Toby format";
+  exportTobyBtn.onclick = async () => {
+    const state = await loadState();
+    const date = new Date().toISOString().slice(0, 10);
+    downloadJson(`shelve-toby-export-${date}.json`, exportToby(state));
+    setDataStatus("Toby-format export downloaded. Note-only entries (no URL) aren't included — Toby has no equivalent.", "success");
+  };
+  tobyRow.appendChild(exportTobyBtn);
+
+  const importTobyBtn = document.createElement("button");
+  importTobyBtn.className = "menu-btn";
+  importTobyBtn.textContent = "Import from Toby";
+  const tobyFileInput = document.createElement("input");
+  tobyFileInput.type = "file";
+  tobyFileInput.accept = ".json";
+  tobyFileInput.hidden = true;
+  importTobyBtn.onclick = () => tobyFileInput.click();
+  tobyFileInput.onchange = async () => {
+    const file = tobyFileInput.files?.[0];
+    tobyFileInput.value = "";
+    if (!file) return;
+    try {
+      const parsed = await readFileAsJson(file);
+      if (!isTobyExport(parsed)) {
+        setDataStatus("That doesn't look like a Toby export file.", "error");
+        return;
+      }
+      const state = await loadState();
+      const result = importToby(state, parsed);
+      await saveState(state);
+      void pushAll(state);
+      setDataStatus(
+        `Imported ${result.folders.length} folder${result.folders.length === 1 ? "" : "s"} and ${result.entries.length} tab${result.entries.length === 1 ? "" : "s"} from Toby. Tags weren't imported (not supported yet).`,
+        "success",
+      );
+    } catch (e) {
+      setDataStatus(`Couldn't read that file: ${e instanceof Error ? e.message : String(e)}`, "error");
+    }
+  };
+  tobyRow.append(importTobyBtn, tobyFileInput);
+  wrap.appendChild(tobyRow);
+
+  wrap.appendChild(dataStatus);
 
   app.appendChild(wrap);
 }

@@ -237,17 +237,51 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.entry .entry-delete {
+.entry .entry-note-btn {
   margin-left: auto;
   color: var(--text-dim);
   visibility: hidden;
   font-size: 12px;
+  flex-shrink: 0;
+}
+.entry:hover .entry-note-btn {
+  visibility: visible;
+}
+.entry .entry-note-btn:hover {
+  color: var(--text);
+}
+
+.entry .entry-delete {
+  color: var(--text-dim);
+  visibility: hidden;
+  font-size: 12px;
+  flex-shrink: 0;
 }
 .entry:hover .entry-delete {
   visibility: visible;
 }
 .entry .entry-delete:hover {
   color: var(--text);
+}
+
+.note-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--bg-hover);
+}
+
+.entry-add-note {
+  color: var(--text-dim);
+  cursor: pointer;
+  border: 1px dashed var(--border);
+  justify-content: center;
+}
+.entry-add-note:hover {
+  color: var(--text);
+  border-color: var(--text-dim);
 }
 
 .empty-hint {
@@ -356,6 +390,28 @@ body {
 }
 .modal-input:focus {
   outline: 1px solid var(--accent);
+}
+
+.modal-textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 4px;
+}
+.modal-textarea:focus {
+  outline: 1px solid var(--accent);
+}
+
+.modal-hint {
+  color: var(--text-dim);
+  font-size: 11px;
+  margin-bottom: 10px;
 }
 
 .modal-actions {

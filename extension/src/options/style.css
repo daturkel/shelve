@@ -99,3 +99,28 @@ body {
 .status.error {
   color: #f28b82;
 }
+
+.options h2 {
+  font-size: 14px;
+  margin-top: 28px;
+  margin-bottom: 4px;
+}
+
+.data-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.menu-btn {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.menu-btn:hover {
+  background: var(--border);
+}

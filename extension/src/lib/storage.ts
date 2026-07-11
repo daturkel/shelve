@@ -149,6 +149,19 @@ export function createEntry(state: State, folderId: string, data: NewEntryData):
   return entry;
 }
 
+/** Sets an entry's note. `note` must be non-empty by the time it gets
+ * here — there's deliberately no way to clear a note-only entry's note to
+ * empty (that would violate the D1 CHECK(url IS NOT NULL OR note IS NOT
+ * NULL) constraint). To remove a note-only entry, delete it; a url entry
+ * can have its note cleared by passing an empty string since the row is
+ * still valid without it — that path just isn't wired up in the UI yet. */
+export function updateEntryNote(state: State, entryId: string, note: string): Entry {
+  const entry = state.entries.find((e) => e.id === entryId)!;
+  entry.note = note;
+  entry.updated_at = Date.now();
+  return entry;
+}
+
 export function moveEntry(state: State, entryId: string, targetFolderId: string): void {
   const entry = state.entries.find((e) => e.id === entryId);
   if (!entry || entry.folder_id === targetFolderId) return;
