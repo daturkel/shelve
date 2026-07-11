@@ -229,13 +229,11 @@ function buildFolderSection(folder: Folder, query: string, workspaceFolders: Fol
   const header = document.createElement("div");
   header.className = "folder-header";
   header.draggable = true;
-
-  const collapseToggle = document.createElement("div");
-  collapseToggle.className = "collapse-toggle";
-  collapseToggle.textContent = collapsed ? "▸" : "▾";
-  collapseToggle.title = collapsed ? "Expand" : "Collapse";
-  collapseToggle.onclick = async (ev) => {
-    ev.stopPropagation();
+  header.title = collapsed ? "Click to expand" : "Click to collapse";
+  // The whole bar toggles collapse — not just the tiny chevron — so it's
+  // not a precision-targeting exercise. name/del opt out via
+  // stopPropagation so rename (dblclick) and delete still work normally.
+  header.onclick = async () => {
     if (collapsed) {
       uiState.collapsedFolderIds = uiState.collapsedFolderIds.filter((id) => id !== folder.id);
     } else {
@@ -244,12 +242,17 @@ function buildFolderSection(folder: Folder, query: string, workspaceFolders: Fol
     await persistUiState();
     render();
   };
+
+  const collapseToggle = document.createElement("div");
+  collapseToggle.className = "collapse-toggle";
+  collapseToggle.textContent = collapsed ? "▸" : "▾";
   header.appendChild(collapseToggle);
 
   const name = document.createElement("div");
   name.className = "folder-name";
   name.textContent = folder.name;
   name.title = "Double-click to rename";
+  name.onclick = (ev) => ev.stopPropagation();
   name.ondblclick = async (ev) => {
     ev.stopPropagation();
     const newName = await showPrompt("Rename folder", folder.name);
@@ -260,6 +263,9 @@ function buildFolderSection(folder: Folder, query: string, workspaceFolders: Fol
   };
   header.appendChild(name);
 
+  // Positioned right after the name (not pushed to the far edge of the
+  // bar) so revealing it on hover doesn't require crossing a long
+  // invisible strip to reach it.
   const del = document.createElement("div");
   del.className = "folder-delete";
   del.textContent = "Delete";

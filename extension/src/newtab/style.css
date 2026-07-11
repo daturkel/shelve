@@ -179,7 +179,6 @@ body {
   cursor: text;
 }
 .folder-delete {
-  margin-left: auto;
   color: var(--text-dim);
   cursor: pointer;
   font-size: 12px;
