@@ -18,6 +18,7 @@ fs.mkdirSync(SHOT_DIR, { recursive: true });
 let context = null;
 let page = null;
 let pendingDialogText = null;
+let extensionId = null;
 
 const COMMANDS = {
   async launch() {
@@ -38,6 +39,8 @@ const COMMANDS = {
     });
     await new Promise((r) => setTimeout(r, 1000));
     page = await context.newPage();
+    page.on("console", (msg) => console.log(`[console.${msg.type()}]`, msg.text()));
+    page.on("pageerror", (err) => console.log("[pageerror]", err.message));
     page.on("dialog", async (dialog) => {
       const text = pendingDialogText;
       pendingDialogText = null;
@@ -50,7 +53,29 @@ const COMMANDS = {
   async newtab() {
     if (!page) return console.log("ERROR: launch first");
     await page.goto("chrome://newtab/", { waitUntil: "load" });
+    extensionId ??= page.url().match(/^chrome-extension:\/\/([^/]+)\//)?.[1] ?? null;
     console.log("newtab →", page.url());
+  },
+
+  // Navigate to an arbitrary extension-relative path, e.g. "options/index.html".
+  // Discovers the extension id via the newtab override if not already known.
+  async goto(relativePath) {
+    if (!page) return console.log("ERROR: launch first");
+    if (!extensionId) await COMMANDS.newtab();
+    if (!extensionId) return console.log("ERROR: could not determine extension id");
+    await page.goto(`chrome-extension://${extensionId}/${relativePath}`, { waitUntil: "load" });
+    console.log("goto →", page.url());
+  },
+
+  // Usage: fill <cssSelector> -> <value>. Same "->" convention as drag,
+  // since values may contain spaces.
+  async fill(arg) {
+    if (!page) return console.log("ERROR: launch first");
+    const [sel, ...rest] = (arg || "").split("->");
+    const value = rest.join("->").trim();
+    if (!sel?.trim()) return console.log("usage: fill <cssSelector> -> <value>");
+    await page.fill(sel.trim(), value);
+    console.log("filled", sel.trim(), "with", JSON.stringify(value));
   },
 
   async ss(name) {
@@ -77,6 +102,12 @@ const COMMANDS = {
     if (!page) return console.log("ERROR: launch first");
     await page.getByText(text, { exact: false }).first().click();
     console.log("clicked text:", text);
+  },
+
+  async dblclick(sel) {
+    if (!page) return console.log("ERROR: launch first");
+    await page.dblclick(sel);
+    console.log("double-clicked:", sel);
   },
 
   async drag(arg) {
@@ -108,6 +139,15 @@ const COMMANDS = {
   async text(sel) {
     if (!page) return console.log("ERROR: launch first");
     console.log(await page.evaluate((s) => document.querySelector(s)?.innerText ?? "(null)", sel));
+  },
+
+  async wait(ms) {
+    // Sync pushes (pushResource/pushDelete in extension/src/lib/sync.ts)
+    // are fire-and-forget — quitting right after a mutation can abort the
+    // in-flight fetch before it lands. Insert a wait before `quit`/`storage`
+    // when you need to observe the push's actual effect.
+    await new Promise((r) => setTimeout(r, Number(ms) || 500));
+    console.log("waited", ms || 500, "ms");
   },
 
   async reload() {

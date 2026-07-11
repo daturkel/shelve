@@ -152,6 +152,23 @@ body {
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+  padding: 4px;
+  border-radius: 6px;
+  cursor: grab;
+}
+.folder-header.drag-over {
+  outline: 1px dashed var(--accent);
+}
+.collapse-toggle {
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 10px;
+  width: 12px;
+  flex-shrink: 0;
+  text-align: center;
+}
+.collapse-toggle:hover {
+  color: var(--text);
 }
 .folder-name {
   font-weight: 600;
@@ -159,6 +176,7 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-dim);
+  cursor: text;
 }
 .folder-delete {
   margin-left: auto;
@@ -177,7 +195,12 @@ body {
 .entry-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  align-content: start;
   gap: 4px;
+  /* A folder with few/no entries should still be a comfortably large drop
+   * target, not a hairline strip under the header. */
+  min-height: 72px;
+  border-radius: 8px;
 }
 
 .entry {
@@ -277,4 +300,73 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
+}
+
+/* Modal (in-window replacement for window.prompt/confirm) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-box {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  min-width: 280px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.modal-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.modal-input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 7px 10px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+.modal-input:focus {
+  outline: 1px solid var(--accent);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.modal-btn {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.modal-btn:hover {
+  opacity: 0.9;
+}
+.modal-btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+.modal-btn-danger {
+  background: #c0392b;
+  border-color: #c0392b;
+  color: white;
 }

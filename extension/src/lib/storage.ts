@@ -8,6 +8,13 @@ export interface State {
 
 const STORAGE_KEY = "shelve_state";
 
+// Fixed rather than crypto.randomUUID(): every fresh device auto-creates
+// this exact workspace before it has ever synced. A random id meant two
+// devices' default workspaces never recognized each other as the same
+// record — they'd just coexist as two "Home" entries after the first
+// sync. A shared, well-known id lets them converge on the same row.
+const DEFAULT_WORKSPACE_ID = "default";
+
 export async function loadState(): Promise<State> {
   const result = await chrome.storage.local.get(STORAGE_KEY);
   const state = result[STORAGE_KEY] as State | undefined;
@@ -18,11 +25,12 @@ export async function loadState(): Promise<State> {
 async function initState(): Promise<State> {
   const now = Date.now();
   const home: Workspace = {
-    id: crypto.randomUUID(),
+    id: DEFAULT_WORKSPACE_ID,
     name: "Home",
     position: 0,
     created_at: now,
     updated_at: now,
+    deleted_at: null,
   };
   const state: State = { workspaces: [home], folders: [], entries: [] };
   await saveState(state);
@@ -41,9 +49,41 @@ export function createWorkspace(state: State, name: string): Workspace {
     position: state.workspaces.length,
     created_at: now,
     updated_at: now,
+    deleted_at: null,
   };
   state.workspaces.push(workspace);
   return workspace;
+}
+
+export function renameWorkspace(state: State, workspaceId: string, name: string): Workspace {
+  const workspace = state.workspaces.find((w) => w.id === workspaceId)!;
+  workspace.name = name;
+  workspace.updated_at = Date.now();
+  return workspace;
+}
+
+export function renameFolder(state: State, folderId: string, name: string): Folder {
+  const folder = state.folders.find((f) => f.id === folderId)!;
+  folder.name = name;
+  folder.updated_at = Date.now();
+  return folder;
+}
+
+/** Reassign positions 0..n-1 to a workspace's folders in the given order.
+ * Only bumps updated_at on folders whose position actually changed, and
+ * returns just those — callers push only what changed rather than the
+ * whole workspace's folders on every reorder. */
+export function reorderFolders(state: State, workspaceId: string, orderedFolderIds: string[]): Folder[] {
+  const now = Date.now();
+  const changed: Folder[] = [];
+  orderedFolderIds.forEach((folderId, index) => {
+    const folder = state.folders.find((f) => f.id === folderId && f.workspace_id === workspaceId);
+    if (!folder || folder.position === index) return;
+    folder.position = index;
+    folder.updated_at = now;
+    changed.push(folder);
+  });
+  return changed;
 }
 
 export function createFolder(state: State, workspaceId: string, name: string): Folder {
@@ -56,14 +96,31 @@ export function createFolder(state: State, workspaceId: string, name: string): F
     position,
     created_at: now,
     updated_at: now,
+    deleted_at: null,
   };
   state.folders.push(folder);
   return folder;
 }
 
-export function deleteFolder(state: State, folderId: string): void {
-  state.folders = state.folders.filter((f) => f.id !== folderId);
-  state.entries = state.entries.filter((e) => e.folder_id !== folderId);
+/** Soft-delete: set deleted_at (and bump updated_at) rather than removing
+ * the row, so the deletion propagates through sync the same way any other
+ * edit does (newer updated_at wins), and content is retained for a future
+ * trash view. Cascades to the folder's entries the same way. Returns the
+ * folder and entries that were just soft-deleted, so callers can push the
+ * deletion to the sync backend. */
+export function deleteFolder(state: State, folderId: string): { folder: Folder; entries: Entry[] } {
+  const now = Date.now();
+  const folder = state.folders.find((f) => f.id === folderId)!;
+  folder.deleted_at = now;
+  folder.updated_at = now;
+
+  const entries = state.entries.filter((e) => e.folder_id === folderId && e.deleted_at === null);
+  for (const entry of entries) {
+    entry.deleted_at = now;
+    entry.updated_at = now;
+  }
+
+  return { folder, entries };
 }
 
 export interface NewEntryData {
@@ -86,6 +143,7 @@ export function createEntry(state: State, folderId: string, data: NewEntryData):
     position,
     created_at: now,
     updated_at: now,
+    deleted_at: null,
   };
   state.entries.push(entry);
   return entry;
@@ -101,6 +159,12 @@ export function moveEntry(state: State, entryId: string, targetFolderId: string)
   entry.updated_at = Date.now();
 }
 
-export function deleteEntry(state: State, entryId: string): void {
-  state.entries = state.entries.filter((e) => e.id !== entryId);
+/** Soft-delete: see deleteFolder for why. Returns the deleted entry so
+ * callers can push the deletion to the sync backend. */
+export function deleteEntry(state: State, entryId: string): Entry {
+  const now = Date.now();
+  const entry = state.entries.find((e) => e.id === entryId)!;
+  entry.deleted_at = now;
+  entry.updated_at = now;
+  return entry;
 }

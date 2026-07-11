@@ -46,8 +46,9 @@ node .claude/skills/run-extension/driver.mjs <<'EOF'
 launch
 newtab
 ss 01-empty
-dialog Reading List
 click-text + New Folder
+fill .modal-input -> Reading List
+click-text OK
 ss 02-folder
 drag .tab-item -> .folder-section
 ss 03-dragged
@@ -67,14 +68,18 @@ extension's Chrome profile persists at `/tmp/shelve-ext-profile`
 
 | command | what it does |
 |---|---|
-| `launch` | load `dist/` unpacked into a persistent Chromium context |
-| `newtab` | navigate a page to `chrome://newtab/` (resolves to the extension's override) |
+| `launch` | load `dist/` unpacked into a persistent Chromium context; also forwards page `console.*` and uncaught errors to the driver's stdout |
+| `newtab` | navigate a page to `chrome://newtab/` (resolves to the extension's override); also discovers and caches the extension id for `goto` |
+| `goto <relativePath>` | navigate to `chrome-extension://<id>/<relativePath>` — e.g. `goto options/index.html`. Discovers the extension id via `newtab` first if not already known |
+| `fill <css-sel> -> <value>` | `page.fill()` a real input — e.g. `fill input[type="password"] -> some-token`. Same `->` separator as `drag` (values may contain spaces) |
 | `ss [name]` | screenshot → `/tmp/shots/<name>.png` |
-| `dialog <text>` | arm the *next* `window.prompt()`/`confirm()` to auto-accept with `<text>` — call this the line before the click that triggers it (folder/workspace creation both use `prompt()`) |
-| `click <css-sel>` | Playwright `.click()` on a CSS selector |
-| `click-text <text>` | click the first element whose text contains `<text>` |
+| `dialog <text>` | arm the *next native* `window.prompt()`/`confirm()` to auto-accept with `<text>` — **not used by create/rename/delete-folder anymore**, those are in-window modals now (see Gotchas); still here for any future flow that uses a real browser dialog |
+| `click <css-sel>` | Playwright `.click()` on a CSS selector — **fails on elements that are only visible on `:hover`** (see Gotchas); use `eval` instead for those |
+| `click-text <text>` | click the first element whose text contains `<text>` — same hover-visibility caveat as `click`. Modal buttons are `OK`/`Cancel`/`Delete` |
+| `dblclick <css-sel>` | double-click — how rename is triggered (`.folder-name`, `.rail-item`) |
 | `drag <fromSel> -> <toSel>` | drag-and-drop `fromSel` onto `toSel` — **note the `->` separator**, not a space (see Gotchas) |
-| `eval <js>` | `page.evaluate()`, prints JSON |
+| `eval <js>` | `page.evaluate()`, prints JSON. Also the escape hatch for clicking hover-only elements: `eval document.querySelector(".folder-delete").click()` bypasses Playwright's visibility check since it's a plain DOM method call |
+| `wait <ms>` | sleep before the next command (default 500ms) — needed after any mutation before `quit` or checking sync state, since sync pushes are fire-and-forget (see Gotchas) |
 | `storage` | dumps `chrome.storage.local.get("shelve_state")` — the actual persisted app state |
 | `text <css-sel>` | prints `innerText` of the first match |
 | `reload` | reloads the current page |
@@ -87,8 +92,104 @@ select `extension/dist`. Then open a new tab. No auto-reload on
 rebuild — click the extension's reload icon in `chrome://extensions`
 after each `npm run build`.
 
+## Testing sync end-to-end
+
+Sync needs the extension's options page configured with a Worker URL +
+token. **Never point this at the real production Worker/token from
+automation** — use a local `wrangler dev` instance instead (same code,
+same D1 schema, harmless local-only token):
+
+```bash
+cd ../../../../worker   # from this skill dir, i.e. worker/
+npx wrangler dev --port 8787   # uses worker/.dev.vars's API_TOKEN
+```
+
+Then drive the extension against it:
+
+```bash
+node .claude/skills/run-extension/driver.mjs <<'EOF'
+launch
+goto options/index.html
+fill input[type="text"] -> http://localhost:8787
+fill input[type="password"] -> local-dev-test-token
+click-text Save
+newtab
+wait 1000
+dialog Test Folder
+click-text + New Folder
+wait 500
+drag .tab-item -> .folder-section
+wait 1500
+storage
+quit
+EOF
+```
+
+Then verify server-side state directly: `curl -H "Authorization: Bearer local-dev-test-token" http://localhost:8787/state`.
+
+To test delete propagation to a *second* device that never deleted
+anything itself (the actual scenario the soft-delete design exists
+for), rerun with a different `PROFILE_DIR` — it gets its own local
+state but talks to the same Worker:
+
+```bash
+PROFILE_DIR=/tmp/shelve-ext-profile-device2 node .claude/skills/run-extension/driver.mjs <<'EOF'
+launch
+goto options/index.html
+fill input[type="text"] -> http://localhost:8787
+fill input[type="password"] -> local-dev-test-token
+click-text Save
+newtab
+wait 1000
+storage
+quit
+EOF
+```
+
 ## Gotchas
 
+- **`drag` can silently no-op right after another re-render** (e.g. a
+  collapse-toggle click immediately before a folder-reorder `drag`).
+  Playwright's synthetic drag reports success (no error, "dragged ..."
+  logs normally) but the drop handler never actually fires — observed
+  once during folder-reorder testing, gone on a clean retry with no
+  other change. Suspected cause: the drag's start/target coordinates get
+  computed against DOM elements that were mid-replacement from the prior
+  render. Not an app bug (confirmed via unit tests + a clean re-run that
+  worked and persisted correctly) — just insert a `wait` between an
+  unrelated mutation and a `drag` if you see this.
+- **Native `window.prompt()`/`confirm()` are gone from the newtab page**
+  as of the in-window modal (folder/workspace create, rename, and
+  folder-delete confirm all use `extension/src/newtab/modal.ts` now).
+  The `dialog` command (arms a native dialog auto-accept) no longer
+  applies to any of these flows — use `fill .modal-input -> <value>`
+  then `click-text OK` (or `click-text Delete`/`click-text Cancel`)
+  instead. `dialog` still matters if a future flow reintroduces a native
+  dialog.
+- **Rename is a double-click**, not a click: `dblclick .folder-name` or
+  `dblclick .rail-item`. A plain `click` on `.rail-item` just switches
+  the active workspace instead.
+- **Sync pushes are fire-and-forget.** `pushResource`/`pushDelete` in
+  `extension/src/lib/sync.ts` aren't awaited by their callers (the UI
+  shouldn't block on network). `quit` closing the browser context right
+  after a mutation can abort the in-flight fetch before it completes —
+  a `POST /folders/...` that should have landed silently doesn't. Always
+  `wait` (500–1500ms) after a mutation before `quit` or checking
+  `storage`/curling the Worker.
+- **Delete buttons are hover-only** (`.folder-delete`, `.entry-delete`
+  have `visibility: hidden` until `.folder-header:hover`/`.entry:hover`).
+  Playwright's `click`/`click-text` fail with "element is not visible"
+  since there's no real mouse hover happening. Use
+  `eval document.querySelector(".folder-delete").click()` instead — a
+  plain DOM method call bypasses the visibility actionability check
+  entirely.
+- **The default "Home" workspace's id isn't stable across devices** (as
+  of this writing — flagged as an open item in the design doc,
+  `plans/shelve-extension.md`). Each fresh profile's first `launch`
+  auto-creates its own "Home" with a random id; syncing two fresh
+  profiles together produces two separate "Home" entries in the rail,
+  not one. Confirmed via the two-profile test above — not a driver bug,
+  a real product gap.
 - **Headless (`HEADLESS=true`) breaks the newtab override.**
   `page.goto("chrome://newtab/")` throws `net::ERR_INVALID_URL` under
   Chromium's new headless architecture, even though the extension

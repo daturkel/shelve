@@ -4,6 +4,11 @@ export interface Workspace {
   position: number;
   created_at: number;
   updated_at: number;
+  /** Soft-delete marker. Set (and updated_at bumped) instead of a hard
+   * delete, so the deletion itself propagates to other devices via the
+   * same "newer updated_at wins" sync merge as any other field. UI code
+   * should filter out records where this is non-null. */
+  deleted_at: number | null;
 }
 
 export interface Folder {
@@ -13,6 +18,7 @@ export interface Folder {
   position: number;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 export interface Entry {
@@ -25,4 +31,7 @@ export interface Entry {
   position: number;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
+
+export type ResourceKind = "workspaces" | "folders" | "entries";

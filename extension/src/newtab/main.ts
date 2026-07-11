@@ -4,17 +4,35 @@ import {
   loadState,
   saveState,
   createWorkspace,
+  renameWorkspace,
   createFolder,
+  renameFolder,
+  reorderFolders,
   deleteFolder,
   createEntry,
   moveEntry,
   deleteEntry,
 } from "../lib/storage";
+import { pushResource, pushDelete, pullAndMerge, pushAll } from "../lib/sync";
+import { getUiState, setUiState } from "../lib/uiState";
+import { showPrompt, showConfirm } from "./modal";
 
 const TAB_MIME = "application/x-shelve-tab";
 const ENTRY_MIME = "application/x-shelve-entry";
+const FOLDER_MIME = "application/x-shelve-folder";
 
 let state: State = await loadState();
+const merged = await pullAndMerge(state);
+if (merged) {
+  state = merged;
+  await saveState(state);
+}
+// Catches records created locally but never successfully synced — most
+// notably the default "Home" workspace from first run.
+void pushAll(state);
+
+let uiState = await getUiState();
+
 let activeWorkspaceId: string = state.workspaces[0]?.id ?? "";
 let leftCollapsed = false;
 let rightCollapsed = false;
@@ -29,6 +47,10 @@ async function persist() {
 async function rerender() {
   await persist();
   render();
+}
+
+async function persistUiState() {
+  await setUiState(uiState);
 }
 
 function render() {
@@ -50,13 +72,26 @@ function buildRail(): HTMLElement {
   const rail = document.createElement("div");
   rail.className = "rail" + (leftCollapsed ? " collapsed" : "");
 
-  for (const ws of [...state.workspaces].sort((a, b) => a.position - b.position)) {
+  const workspaces = state.workspaces
+    .filter((ws) => ws.deleted_at === null)
+    .sort((a, b) => a.position - b.position);
+
+  for (const ws of workspaces) {
     const item = document.createElement("div");
     item.className = "rail-item" + (ws.id === activeWorkspaceId ? " active" : "");
     item.textContent = ws.name;
+    item.title = "Double-click to rename";
     item.onclick = () => {
       activeWorkspaceId = ws.id;
       render();
+    };
+    item.ondblclick = async (ev) => {
+      ev.stopPropagation();
+      const name = await showPrompt("Rename workspace", ws.name);
+      if (!name || name === ws.name) return;
+      renameWorkspace(state, ws.id, name);
+      await rerender();
+      void pushResource("workspaces", ws);
     };
     rail.appendChild(item);
   }
@@ -65,11 +100,12 @@ function buildRail(): HTMLElement {
   addBtn.className = "rail-add";
   addBtn.textContent = "+ New workspace";
   addBtn.onclick = async () => {
-    const name = prompt("Workspace name?");
+    const name = await showPrompt("New workspace");
     if (!name) return;
     const ws = createWorkspace(state, name);
     activeWorkspaceId = ws.id;
     await rerender();
+    void pushResource("workspaces", ws);
   };
   rail.appendChild(addBtn);
 
@@ -116,10 +152,11 @@ function buildToolbar(): HTMLElement {
   newFolderBtn.className = "new-folder-btn";
   newFolderBtn.textContent = "+ New Folder";
   newFolderBtn.onclick = async () => {
-    const name = prompt("Folder name?");
+    const name = await showPrompt("New folder");
     if (!name) return;
-    createFolder(state, activeWorkspaceId, name);
+    const folder = createFolder(state, activeWorkspaceId, name);
     await rerender();
+    void pushResource("folders", folder);
   };
   toolbar.appendChild(newFolderBtn);
 
@@ -141,7 +178,7 @@ function buildFolders(): HTMLElement {
   container.className = "folders";
 
   const folders = state.folders
-    .filter((f) => f.workspace_id === activeWorkspaceId)
+    .filter((f) => f.workspace_id === activeWorkspaceId && f.deleted_at === null)
     .sort((a, b) => a.position - b.position);
 
   if (folders.length === 0) {
@@ -155,52 +192,121 @@ function buildFolders(): HTMLElement {
   const query = searchQuery.trim().toLowerCase();
 
   for (const folder of folders) {
-    container.appendChild(buildFolderSection(folder, query));
+    container.appendChild(buildFolderSection(folder, query, folders));
   }
 
   return container;
 }
 
-function buildFolderSection(folder: Folder, query: string): HTMLElement {
+function buildFolderSection(folder: Folder, query: string, workspaceFolders: Folder[]): HTMLElement {
+  const collapsed = uiState.collapsedFolderIds.includes(folder.id);
+
   const section = document.createElement("div");
   section.className = "folder-section";
 
   const header = document.createElement("div");
   header.className = "folder-header";
+  header.draggable = true;
+
+  const collapseToggle = document.createElement("div");
+  collapseToggle.className = "collapse-toggle";
+  collapseToggle.textContent = collapsed ? "▸" : "▾";
+  collapseToggle.title = collapsed ? "Expand" : "Collapse";
+  collapseToggle.onclick = async (ev) => {
+    ev.stopPropagation();
+    if (collapsed) {
+      uiState.collapsedFolderIds = uiState.collapsedFolderIds.filter((id) => id !== folder.id);
+    } else {
+      uiState.collapsedFolderIds.push(folder.id);
+    }
+    await persistUiState();
+    render();
+  };
+  header.appendChild(collapseToggle);
 
   const name = document.createElement("div");
   name.className = "folder-name";
   name.textContent = folder.name;
+  name.title = "Double-click to rename";
+  name.ondblclick = async (ev) => {
+    ev.stopPropagation();
+    const newName = await showPrompt("Rename folder", folder.name);
+    if (!newName || newName === folder.name) return;
+    renameFolder(state, folder.id, newName);
+    await rerender();
+    void pushResource("folders", folder);
+  };
   header.appendChild(name);
 
   const del = document.createElement("div");
   del.className = "folder-delete";
   del.textContent = "Delete";
-  del.onclick = async () => {
-    if (!confirm(`Delete folder "${folder.name}" and its entries?`)) return;
-    deleteFolder(state, folder.id);
+  del.onclick = async (ev) => {
+    ev.stopPropagation();
+    const ok = await showConfirm(`Delete folder "${folder.name}" and its entries?`);
+    if (!ok) return;
+    const { entries: cascadedEntries } = deleteFolder(state, folder.id);
     await rerender();
+    void pushDelete("folders", folder.id);
+    for (const entry of cascadedEntries) void pushDelete("entries", entry.id);
   };
   header.appendChild(del);
 
+  // Folder reordering: drag one folder's header onto another's to reorder
+  // within the workspace. Distinct MIME type from tab/entry drags, handled
+  // only on the header (not the whole section) to keep it unambiguous.
+  header.ondragstart = (ev) => {
+    ev.stopPropagation();
+    ev.dataTransfer?.setData(FOLDER_MIME, folder.id);
+    ev.dataTransfer!.effectAllowed = "move";
+  };
+  header.ondragover = (ev) => {
+    if (ev.dataTransfer?.types.includes(FOLDER_MIME)) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      header.classList.add("drag-over");
+    }
+  };
+  header.ondragleave = () => header.classList.remove("drag-over");
+  header.ondrop = async (ev) => {
+    const draggedId = ev.dataTransfer?.getData(FOLDER_MIME);
+    if (!draggedId) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    header.classList.remove("drag-over");
+    if (draggedId === folder.id) return;
+
+    const orderedIds = workspaceFolders.map((f) => f.id).filter((id) => id !== draggedId);
+    const targetIndex = orderedIds.indexOf(folder.id);
+    orderedIds.splice(targetIndex, 0, draggedId);
+
+    const changed = reorderFolders(state, activeWorkspaceId, orderedIds);
+    await rerender();
+    for (const f of changed) void pushResource("folders", f);
+  };
+
   section.appendChild(header);
 
-  const grid = document.createElement("div");
-  grid.className = "entry-grid";
+  if (!collapsed) {
+    const grid = document.createElement("div");
+    grid.className = "entry-grid";
 
-  let entries = state.entries
-    .filter((e) => e.folder_id === folder.id)
-    .sort((a, b) => a.position - b.position);
+    let entries = state.entries
+      .filter((e) => e.folder_id === folder.id && e.deleted_at === null)
+      .sort((a, b) => a.position - b.position);
 
-  if (query) {
-    entries = entries.filter((e) => (e.title ?? e.url ?? e.note ?? "").toLowerCase().includes(query));
+    if (query) {
+      entries = entries.filter((e) =>
+        (e.title ?? e.url ?? e.note ?? "").toLowerCase().includes(query),
+      );
+    }
+
+    for (const entry of entries) {
+      grid.appendChild(buildEntryEl(entry));
+    }
+
+    section.appendChild(grid);
   }
-
-  for (const entry of entries) {
-    grid.appendChild(buildEntryEl(entry));
-  }
-
-  section.appendChild(grid);
 
   section.ondragover = (ev) => {
     if (ev.dataTransfer?.types.includes(TAB_MIME) || ev.dataTransfer?.types.includes(ENTRY_MIME)) {
@@ -216,12 +322,13 @@ function buildFolderSection(folder: Folder, query: string): HTMLElement {
     const tabData = ev.dataTransfer?.getData(TAB_MIME);
     if (tabData) {
       const tab = JSON.parse(tabData) as { url: string; title: string; favIconUrl?: string };
-      createEntry(state, folder.id, {
+      const entry = createEntry(state, folder.id, {
         url: tab.url,
         title: tab.title,
         favicon_url: tab.favIconUrl ?? null,
       });
       await rerender();
+      void pushResource("entries", entry);
       return;
     }
 
@@ -229,6 +336,8 @@ function buildFolderSection(folder: Folder, query: string): HTMLElement {
     if (entryId) {
       moveEntry(state, entryId, folder.id);
       await rerender();
+      const moved = state.entries.find((e) => e.id === entryId);
+      if (moved) void pushResource("entries", moved);
     }
   };
 
@@ -259,6 +368,7 @@ function buildEntryEl(entry: Entry): HTMLElement {
     ev.stopPropagation();
     deleteEntry(state, entry.id);
     await rerender();
+    void pushDelete("entries", entry.id);
   };
   el.appendChild(del);
 
