@@ -1,0 +1,280 @@
+:root {
+  --bg: #17181c;
+  --bg-raised: #1f2126;
+  --bg-hover: #2a2d34;
+  --border: #2f323a;
+  --text: #e6e6e9;
+  --text-dim: #9497a1;
+  --accent: #6c8cff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+}
+
+#app {
+  height: 100vh;
+}
+
+.layout {
+  display: flex;
+  height: 100%;
+}
+
+/* Left rail */
+.rail {
+  width: 180px;
+  flex-shrink: 0;
+  background: var(--bg-raised);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 12px 8px;
+  overflow-y: auto;
+}
+.rail.collapsed {
+  width: 0;
+  padding: 0;
+  overflow: hidden;
+  border-right: none;
+}
+
+.rail-item {
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.rail-item:hover {
+  background: var(--bg-hover);
+}
+.rail-item.active {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.rail-add {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 6px 8px;
+}
+.rail-add:hover {
+  color: var(--text);
+}
+
+/* Main content */
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.toolbar button.icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px 6px;
+}
+.toolbar button.icon-btn:hover {
+  color: var(--text);
+}
+
+.search-input {
+  flex: 1;
+  max-width: 320px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.search-input:focus {
+  outline: 1px solid var(--accent);
+}
+
+.new-folder-btn {
+  margin-left: auto;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.new-folder-btn:hover {
+  background: var(--bg-hover);
+}
+
+.folders {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+}
+
+.folder-section {
+  margin-bottom: 24px;
+}
+.folder-section.drag-over {
+  outline: 1px dashed var(--accent);
+  border-radius: 8px;
+}
+
+.folder-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.folder-name {
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+.folder-delete {
+  margin-left: auto;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  visibility: hidden;
+}
+.folder-header:hover .folder-delete {
+  visibility: visible;
+}
+.folder-delete:hover {
+  color: var(--text);
+}
+
+.entry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 4px;
+}
+
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: grab;
+  min-width: 0;
+}
+.entry:hover {
+  background: var(--bg-hover);
+}
+.entry .favicon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+.entry .title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.entry .entry-delete {
+  margin-left: auto;
+  color: var(--text-dim);
+  visibility: hidden;
+  font-size: 12px;
+}
+.entry:hover .entry-delete {
+  visibility: visible;
+}
+.entry .entry-delete:hover {
+  color: var(--text);
+}
+
+.empty-hint {
+  color: var(--text-dim);
+  font-size: 13px;
+  padding: 4px 0;
+}
+
+/* Open tabs panel */
+.tabs-panel {
+  width: 280px;
+  flex-shrink: 0;
+  background: var(--bg-raised);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 12px;
+}
+.tabs-panel.collapsed {
+  width: 0;
+  padding: 0;
+  overflow: hidden;
+  border-left: none;
+}
+
+.tabs-panel-header {
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+}
+
+.tab-window {
+  margin-bottom: 16px;
+}
+.tab-window-title {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  cursor: grab;
+}
+.tab-item:hover {
+  background: var(--bg-hover);
+}
+.tab-item .favicon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+.tab-item .title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+}

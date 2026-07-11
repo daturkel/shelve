@@ -1,0 +1,19 @@
+{
+  "name": "@shelve/extension",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build && cp manifest.json dist/manifest.json",
+    "watch": "vite build --watch"
+  },
+  "dependencies": {
+    "@shelve/shared": "*"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.324",
+    "playwright": "^1.61.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.0.0"
+  }
+}
