@@ -73,13 +73,22 @@ export async function pushDelete(kind: ResourceKind, id: string): Promise<void> 
   await apiFetch(`/${kind}/${id}`, { method: "DELETE" });
 }
 
+/** Fetch the raw remote snapshot with no merge into local state — used for
+ * a standalone connectivity check (e.g. the options page confirming a
+ * Worker URL/token actually works before the user ever opens the newtab
+ * page). Returns null if sync isn't configured or the request fails. */
+export async function fetchRemoteState(): Promise<RemoteState | null> {
+  const res = await apiFetch("/state");
+  if (!res || !res.ok) return null;
+  return (await res.json()) as RemoteState;
+}
+
 /** Pull the full remote snapshot and merge it into local state. Returns
  * null (leaving local state untouched) if sync isn't configured or the
  * request fails. */
 export async function pullAndMerge(local: State): Promise<State | null> {
-  const res = await apiFetch("/state");
-  if (!res || !res.ok) return null;
-  const remote = (await res.json()) as RemoteState;
+  const remote = await fetchRemoteState();
+  if (!remote) return null;
   return mergeState(local, remote);
 }
 

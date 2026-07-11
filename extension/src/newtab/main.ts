@@ -206,7 +206,39 @@ function buildFolders(): HTMLElement {
   if (folders.length === 0) {
     const hint = document.createElement("div");
     hint.className = "empty-hint";
-    hint.textContent = "No folders yet. Create one to start saving tabs.";
+    hint.textContent = "No folders yet. Create one to start saving tabs, or drag a tab here.";
+
+    // Dragging a tab in when there's nowhere to put it yet: prompt for a
+    // folder name and create both the folder and the entry in one step,
+    // instead of making the user go create a folder first and retry the
+    // drag.
+    hint.ondragover = (ev) => {
+      if (ev.dataTransfer?.types.includes(TAB_MIME)) {
+        ev.preventDefault();
+        hint.classList.add("drag-over");
+      }
+    };
+    hint.ondragleave = () => hint.classList.remove("drag-over");
+    hint.ondrop = async (ev) => {
+      ev.preventDefault();
+      hint.classList.remove("drag-over");
+      const tabData = ev.dataTransfer?.getData(TAB_MIME);
+      if (!tabData) return;
+
+      const name = await showPrompt("New folder");
+      if (!name) return;
+      const tab = JSON.parse(tabData) as { url: string; title: string; favIconUrl?: string };
+      const folder = createFolder(state, activeWorkspaceId, name);
+      const entry = createEntry(state, folder.id, {
+        url: tab.url,
+        title: tab.title,
+        favicon_url: tab.favIconUrl ?? null,
+      });
+      await rerender();
+      void pushResource("folders", folder);
+      void pushResource("entries", entry);
+    };
+
     container.appendChild(hint);
     return container;
   }

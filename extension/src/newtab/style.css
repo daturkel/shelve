@@ -253,7 +253,12 @@ body {
 .empty-hint {
   color: var(--text-dim);
   font-size: 13px;
-  padding: 4px 0;
+  padding: 16px;
+  border-radius: 8px;
+  min-height: 72px;
+}
+.empty-hint.drag-over {
+  outline: 1px dashed var(--accent);
 }
 
 /* Open tabs panel */

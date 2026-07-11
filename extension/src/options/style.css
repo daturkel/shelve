@@ -83,3 +83,6 @@ body {
 .status.success {
   color: #7ee787;
 }
+.status.error {
+  color: #f28b82;
+}

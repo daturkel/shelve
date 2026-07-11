@@ -1,4 +1,5 @@
 import { getConfig, setConfig } from "../lib/config";
+import { fetchRemoteState } from "../lib/sync";
 
 const app = document.getElementById("app")!;
 
@@ -59,7 +60,26 @@ async function render() {
       return;
     }
     await setConfig({ workerUrl, apiToken });
-    status.textContent = "Saved.";
+
+    // Confirm the URL/token actually work right here, rather than leaving
+    // the user to wonder why nothing happened until they open a new tab —
+    // especially important when setting up a device that should already
+    // have existing folders waiting on the Worker.
+    status.textContent = "Saved. Checking connection…";
+    status.className = "status";
+    const remote = await fetchRemoteState();
+    if (!remote) {
+      status.textContent = "Saved, but couldn't connect — check the URL and token.";
+      status.className = "status error";
+      return;
+    }
+
+    const folderCount = remote.folders.filter((f) => f.deleted_at === null).length;
+    const entryCount = remote.entries.filter((e) => e.deleted_at === null).length;
+    status.textContent =
+      folderCount === 0 && entryCount === 0
+        ? "Connected. No existing data yet — you're starting fresh."
+        : `Connected. Found ${folderCount} folder${folderCount === 1 ? "" : "s"} and ${entryCount} saved tab${entryCount === 1 ? "" : "s"} — open a new tab to sync them in.`;
     status.className = "status success";
   };
 
