@@ -1,0 +1,8 @@
+name = "shelve-worker"
+main = "src/index.ts"
+compatibility_date = "2026-07-11"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "shelve-db"
+database_id = "TODO_FILL_IN_AFTER_D1_CREATE"

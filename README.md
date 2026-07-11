@@ -1,4 +1,4 @@
-# Tab Sync
+# Shelve
 
 A self-hosted alternative to Toby: a Chrome extension for saving tabs into
 folders, synced across your devices via your own Cloudflare Worker + D1

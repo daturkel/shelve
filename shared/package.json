@@ -1,0 +1,8 @@
+{
+  "name": "@shelve/shared",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "types.ts",
+  "types": "types.ts"
+}

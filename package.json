@@ -1,0 +1,14 @@
+{
+  "name": "shelve",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "worker"
+  ],
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.3": true,
+    "sharp@0.34.5": true,
+    "workerd@1.20260708.1": true
+  }
+}
