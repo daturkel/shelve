@@ -1,10 +1,12 @@
 import { getConfig, setConfig } from "../lib/config";
 import { fetchRemoteState } from "../lib/sync";
+import { getUiState, setUiState } from "../lib/uiState";
 
 const app = document.getElementById("app")!;
 
 async function render() {
   const config = await getConfig();
+  const uiState = await getUiState();
 
   app.innerHTML = "";
 
@@ -41,6 +43,26 @@ async function render() {
   tokenInput.value = config?.apiToken ?? "";
   tokenField.append(tokenLabel, tokenInput);
   wrap.appendChild(tokenField);
+
+  const newtabField = document.createElement("div");
+  newtabField.className = "field field-checkbox";
+  const newtabLabel = document.createElement("label");
+  const newtabCheckbox = document.createElement("input");
+  newtabCheckbox.type = "checkbox";
+  newtabCheckbox.checked = uiState.showOnNewTab;
+  newtabLabel.append(newtabCheckbox, " Show Shelve when opening a new tab");
+  newtabField.appendChild(newtabLabel);
+  wrap.appendChild(newtabField);
+
+  const newtabHint = document.createElement("p");
+  newtabHint.className = "hint";
+  newtabHint.textContent =
+    "When off, new tabs show Chrome's normal default page. Open Shelve anytime from the toolbar button.";
+  wrap.appendChild(newtabHint);
+
+  newtabCheckbox.onchange = async () => {
+    await setUiState({ ...uiState, showOnNewTab: newtabCheckbox.checked });
+  };
 
   const saveBtn = document.createElement("button");
   saveBtn.className = "save-btn";

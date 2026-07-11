@@ -15,7 +15,7 @@ import {
 } from "../lib/storage";
 import { pushResource, pushDelete, pullAndMerge, pushAll } from "../lib/sync";
 import { getUiState, setUiState } from "../lib/uiState";
-import { showPrompt, showConfirm } from "./modal";
+import { showPrompt, showConfirm } from "../lib/modal";
 
 const TAB_MIME = "application/x-shelve-tab";
 const ENTRY_MIME = "application/x-shelve-entry";

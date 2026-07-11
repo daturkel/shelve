@@ -5,8 +5,13 @@
   "description": "Save tabs into folders, synced across your devices via your own Cloudflare Worker + D1 backend.",
   "permissions": ["storage", "tabs"],
   "host_permissions": ["<all_urls>"],
-  "chrome_url_overrides": {
-    "newtab": "newtab/index.html"
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title": "Shelve"
   },
   "options_page": "options/index.html"
 }

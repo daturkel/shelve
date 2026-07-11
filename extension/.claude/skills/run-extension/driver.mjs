@@ -1,7 +1,7 @@
 // REPL driver for the Shelve Chrome extension.
 // Loads extension/dist unpacked into a real Chromium instance (Playwright
-// launchPersistentContext + --load-extension) and lets an agent drive the
-// newtab override page programmatically.
+// launchPersistentContext + --load-extension) and lets an agent drive its
+// pages (newtab, options, popup) programmatically via `goto`.
 //
 // Usage: node driver.mjs   (then type commands, one per line)
 import { chromium } from "playwright";
@@ -26,10 +26,11 @@ const COMMANDS = {
     if (!fs.existsSync(path.join(DIST_DIR, "manifest.json"))) {
       return console.log("ERROR: dist/manifest.json missing — run `npm run build` first");
     }
-    // Headless (new architecture) fails to serve the chrome://newtab
-    // override — ERR_INVALID_URL — even though the extension itself loads
-    // fine. Default to headed; on a display-less Linux box run this whole
-    // driver under `xvfb-run -a` instead of forcing HEADLESS=true.
+    // Headless (new architecture) doesn't reliably register the extension's
+    // MV3 service worker — context.serviceWorkers() comes back empty, so
+    // extension id discovery (below) fails outright. Default to headed; on
+    // a display-less Linux box run this whole driver under `xvfb-run -a`
+    // instead of forcing HEADLESS=true.
     context = await chromium.launchPersistentContext(PROFILE_DIR, {
       headless: process.env.HEADLESS === "true",
       args: [
@@ -47,21 +48,25 @@ const COMMANDS = {
       if (text !== null) await dialog.accept(text);
       else await dialog.dismiss();
     });
-    console.log("launched. profile:", PROFILE_DIR);
-  },
 
-  async newtab() {
-    if (!page) return console.log("ERROR: launch first");
-    await page.goto("chrome://newtab/", { waitUntil: "load" });
-    extensionId ??= page.url().match(/^chrome-extension:\/\/([^/]+)\//)?.[1] ?? null;
-    console.log("newtab →", page.url());
+    // Extension id discovery: there is no static chrome_url_overrides.newtab
+    // anymore (the new-tab takeover is an opt-in runtime redirect via the
+    // background worker — see extension/src/background/background.ts), so
+    // we can no longer read the id off a redirected newtab page. Instead
+    // read it off the extension's own MV3 service worker, which Playwright
+    // exposes via context.serviceWorkers(). Poll briefly since the worker
+    // can take a moment to register after launch.
+    for (let i = 0; i < 20 && !extensionId; i++) {
+      const worker = context.serviceWorkers().find((w) => w.url().startsWith("chrome-extension://"));
+      if (worker) extensionId = worker.url().match(/^chrome-extension:\/\/([^/]+)\//)?.[1] ?? null;
+      if (!extensionId) await new Promise((r) => setTimeout(r, 200));
+    }
+    console.log("launched. profile:", PROFILE_DIR, "extensionId:", extensionId);
   },
 
   // Navigate to an arbitrary extension-relative path, e.g. "options/index.html".
-  // Discovers the extension id via the newtab override if not already known.
   async goto(relativePath) {
     if (!page) return console.log("ERROR: launch first");
-    if (!extensionId) await COMMANDS.newtab();
     if (!extensionId) return console.log("ERROR: could not determine extension id");
     await page.goto(`chrome-extension://${extensionId}/${relativePath}`, { waitUntil: "load" });
     console.log("goto →", page.url());

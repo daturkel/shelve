@@ -1,12 +1,19 @@
 ---
 name: run-extension
-description: Build, load, and drive the Shelve Chrome extension (MV3, newtab override) in a real Chromium instance. Use when asked to run, build, test, or screenshot the extension, or to verify a UI change to the newtab folder-browser page.
+description: Build, load, and drive the Shelve Chrome extension (MV3 — newtab page, options page, toolbar popup, background worker) in a real Chromium instance. Use when asked to run, build, test, or screenshot the extension, or to verify a UI change.
 ---
 
 The Shelve extension has no dev server — it's a built, unpacked MV3
 extension loaded via `--load-extension`. There is no `chromium-cli`
 support for extension loading (custom launch flags required), so this
 skill ships its own Playwright REPL driver.
+
+The extension has **no static `chrome_url_overrides.newtab`** — taking
+over the new-tab page is an opt-in runtime redirect done by the
+background service worker (`extension/src/background/background.ts`),
+gated by a user preference. All three UI surfaces (`newtab/index.html`,
+`options/index.html`, `popup/index.html`) are reached via the driver's
+`goto` command, not by navigating to `chrome://newtab/`.
 
 All paths below are relative to `extension/` (this skill's grandparent
 directory).
@@ -27,9 +34,10 @@ npx playwright install chromium
 npm run build   # vite build + copies manifest.json → dist/
 ```
 
-Verifies `dist/manifest.json` and `dist/newtab/index.html` exist. The
-driver's `launch` command checks for `dist/manifest.json` and refuses
-to start if the build hasn't been run.
+Verifies `dist/manifest.json`, `dist/newtab/index.html`,
+`dist/options/index.html`, `dist/popup/index.html`, and `dist/background.js`
+exist. The driver's `launch` command checks for `dist/manifest.json` and
+refuses to start if the build hasn't been run.
 
 ## Run (agent path)
 
@@ -44,7 +52,7 @@ Troubleshooting for a queuing gotcha this required fixing):
 ```bash
 node .claude/skills/run-extension/driver.mjs <<'EOF'
 launch
-newtab
+goto newtab/index.html
 ss 01-empty
 click-text + New Folder
 fill .modal-input -> Reading List
@@ -68,12 +76,11 @@ extension's Chrome profile persists at `/tmp/shelve-ext-profile`
 
 | command | what it does |
 |---|---|
-| `launch` | load `dist/` unpacked into a persistent Chromium context; also forwards page `console.*` and uncaught errors to the driver's stdout |
-| `newtab` | navigate a page to `chrome://newtab/` (resolves to the extension's override); also discovers and caches the extension id for `goto` |
-| `goto <relativePath>` | navigate to `chrome-extension://<id>/<relativePath>` — e.g. `goto options/index.html`. Discovers the extension id via `newtab` first if not already known |
+| `launch` | load `dist/` unpacked into a persistent Chromium context; forwards page `console.*` and uncaught errors to the driver's stdout; discovers the extension id off the MV3 service worker (`context.serviceWorkers()`) for `goto` |
+| `goto <relativePath>` | navigate to `chrome-extension://<id>/<relativePath>` — e.g. `goto newtab/index.html`, `goto options/index.html`, `goto popup/index.html` |
 | `fill <css-sel> -> <value>` | `page.fill()` a real input — e.g. `fill input[type="password"] -> some-token`. Same `->` separator as `drag` (values may contain spaces) |
 | `ss [name]` | screenshot → `/tmp/shots/<name>.png` |
-| `dialog <text>` | arm the *next native* `window.prompt()`/`confirm()` to auto-accept with `<text>` — **not used by create/rename/delete-folder anymore**, those are in-window modals now (see Gotchas); still here for any future flow that uses a real browser dialog |
+| `dialog <text>` | arm the *next native* `window.prompt()`/`confirm()` to auto-accept with `<text>` — **not used anywhere in this app**, all dialogs are the in-window modal now (see Gotchas); kept in case a future flow ever needs a real browser dialog |
 | `click <css-sel>` | Playwright `.click()` on a CSS selector — **fails on elements that are only visible on `:hover`** (see Gotchas); use `eval` instead for those |
 | `click-text <text>` | click the first element whose text contains `<text>` — same hover-visibility caveat as `click`. Modal buttons are `OK`/`Cancel`/`Delete` |
 | `dblclick <css-sel>` | double-click — how rename is triggered (`.folder-name`, `.rail-item`) |
@@ -88,9 +95,11 @@ extension's Chrome profile persists at `/tmp/shelve-ext-profile`
 ## Run (human path)
 
 `chrome://extensions` → enable Developer mode → "Load unpacked" →
-select `extension/dist`. Then open a new tab. No auto-reload on
-rebuild — click the extension's reload icon in `chrome://extensions`
-after each `npm run build`.
+select `extension/dist`. Toolbar icon opens the popup; new tab shows
+Shelve only if "Show Shelve when opening a new tab" is on in the
+options page (default: on). No auto-reload on rebuild — click the
+extension's reload icon in `chrome://extensions` after each
+`npm run build`.
 
 ## Testing sync end-to-end
 
@@ -113,10 +122,11 @@ goto options/index.html
 fill input[type="text"] -> http://localhost:8787
 fill input[type="password"] -> local-dev-test-token
 click-text Save
-newtab
+goto newtab/index.html
 wait 1000
-dialog Test Folder
 click-text + New Folder
+fill .modal-input -> Test Folder
+click-text OK
 wait 500
 drag .tab-item -> .folder-section
 wait 1500
@@ -139,8 +149,40 @@ goto options/index.html
 fill input[type="text"] -> http://localhost:8787
 fill input[type="password"] -> local-dev-test-token
 click-text Save
-newtab
 wait 1000
+storage
+quit
+EOF
+```
+
+## Testing the popup
+
+The popup (`extension/src/popup/`) is driven the same way via
+`goto popup/index.html`, but it calls `window.close()` after a
+successful save (~700ms delay) — correct real-world behavior for an
+actual toolbar popup, but it kills the driver's page mid-script since
+we're loading it as a regular tab, not a real popup surface. Capture
+whatever you need to check *before* that timer fires (e.g. `wait 200`
+right after the save action, not `wait 1000+`), then verify persistence
+in a **separate** `launch` afterward:
+
+```bash
+node .claude/skills/run-extension/driver.mjs <<'EOF'
+launch
+goto popup/index.html
+click-text Save current tab
+wait 300
+click-text + New Folder
+fill .modal-input -> Quick Save
+click-text OK
+wait 200
+ss popup-saved
+quit
+EOF
+# then, separately:
+node .claude/skills/run-extension/driver.mjs <<'EOF'
+launch
+goto newtab/index.html
 storage
 quit
 EOF
@@ -158,17 +200,19 @@ EOF
   render. Not an app bug (confirmed via unit tests + a clean re-run that
   worked and persisted correctly) — just insert a `wait` between an
   unrelated mutation and a `drag` if you see this.
-- **Native `window.prompt()`/`confirm()` are gone from the newtab page**
-  as of the in-window modal (folder/workspace create, rename, and
-  folder-delete confirm all use `extension/src/newtab/modal.ts` now).
-  The `dialog` command (arms a native dialog auto-accept) no longer
-  applies to any of these flows — use `fill .modal-input -> <value>`
-  then `click-text OK` (or `click-text Delete`/`click-text Cancel`)
-  instead. `dialog` still matters if a future flow reintroduces a native
-  dialog.
+- **Native `window.prompt()`/`confirm()` are gone from the whole app**
+  — folder/workspace create, rename, and delete-confirm all use the
+  shared in-window modal (`extension/src/lib/modal.ts`, used by both
+  newtab and popup). The `dialog` command (arms a native dialog
+  auto-accept) doesn't apply to any current flow — use
+  `fill .modal-input -> <value>` then `click-text OK` (or
+  `click-text Delete`/`click-text Cancel`) instead.
 - **Rename is a double-click**, not a click: `dblclick .folder-name` or
   `dblclick .rail-item`. A plain `click` on `.rail-item` just switches
   the active workspace instead.
+- **The popup closes itself (`window.close()`) ~700ms after a
+  successful save.** See "Testing the popup" above — capture state
+  before that fires, verify persistence in a fresh `launch`.
 - **Sync pushes are fire-and-forget.** `pushResource`/`pushDelete` in
   `extension/src/lib/sync.ts` aren't awaited by their callers (the UI
   shouldn't block on network). `quit` closing the browser context right
@@ -183,20 +227,13 @@ EOF
   `eval document.querySelector(".folder-delete").click()` instead — a
   plain DOM method call bypasses the visibility actionability check
   entirely.
-- **The default "Home" workspace's id isn't stable across devices** (as
-  of this writing — flagged as an open item in the design doc,
-  `plans/shelve-extension.md`). Each fresh profile's first `launch`
-  auto-creates its own "Home" with a random id; syncing two fresh
-  profiles together produces two separate "Home" entries in the rail,
-  not one. Confirmed via the two-profile test above — not a driver bug,
-  a real product gap.
-- **Headless (`HEADLESS=true`) breaks the newtab override.**
-  `page.goto("chrome://newtab/")` throws `net::ERR_INVALID_URL` under
-  Chromium's new headless architecture, even though the extension
-  loads and everything else works. The driver defaults to **headed**
-  for this reason. On a display-less Linux box, don't set
-  `HEADLESS=true` — instead run the whole driver under `xvfb-run -a`
-  to get a real (virtual) display while keeping headed mode.
+- **Headless (`HEADLESS=true`) doesn't reliably register the
+  extension's MV3 service worker** — `context.serviceWorkers()` comes
+  back empty, so extension id discovery in `launch` fails outright and
+  `goto` can't resolve a `chrome-extension://` URL. The driver defaults
+  to **headed** for this reason. On a display-less Linux box, don't set
+  `HEADLESS=true` — instead run the whole driver under `xvfb-run -a` to
+  get a real (virtual) display while keeping headed mode.
 - **`drag` needs `->`, not a space, between selectors.** The command
   dispatcher joins all trailing words into one string before calling
   the handler (so `click-text + New Folder` works as a single
@@ -207,10 +244,10 @@ EOF
   (descendant combinators).
 - **Piped heredoc input can race past `launch`.** `readline` emits
   every buffered `line` event before the first command's `await`
-  resolves, so unserialized handlers ran `newtab` concurrently with
-  `launch`, before the browser context existed. Fixed with a promise
-  queue (`queue = queue.then(...)`) so commands execute strictly in
-  order.
+  resolves, so unserialized handlers ran subsequent commands
+  concurrently with `launch`, before the browser context existed.
+  Fixed with a promise queue (`queue = queue.then(...)`) so commands
+  execute strictly in order.
 - **`readline` auto-closes on stdin EOF**, independent of that queue —
   a heredoc's closing line fires `rl`'s `'close'` event immediately,
   which used to call `quit()`/`process.exit(0)` before the queued
@@ -218,18 +255,17 @@ EOF
   `close` handler before tearing down, plus a `rlClosed` guard so
   in-flight commands don't call `rl.prompt()` on an already-closed
   interface.
-- **`window.prompt()` blocks real navigation** — folder/workspace
-  creation both use it. Always send `dialog <text>` on the line
-  *before* the `click`/`click-text` that triggers the prompt; without
-  an armed handler Playwright auto-dismisses the dialog and the
-  create silently no-ops.
 
 ## Troubleshooting
 
 - **`ERROR: dist/manifest.json missing`** on `launch` → run
   `npm run build` first.
-- **`ERR_INVALID_URL` on `newtab`** → you're running headless. See the
-  headless Gotcha above; unset `HEADLESS` or run under `xvfb-run -a`.
+- **`ERROR: could not determine extension id`** on `goto` → the
+  background service worker hasn't registered yet, or you're running
+  headless (see Gotchas). Rerun headed, or add a short `wait` after
+  `launch`.
 - **`chrome is not defined` from `eval`/`storage`** → you're not on an
-  extension-origin page yet (e.g. still on `about:blank` because
-  `newtab` failed above). Fix the underlying navigation first.
+  extension-origin page yet (e.g. `goto` was never called, or navigation
+  failed above). Fix the underlying navigation first.
+- **`Target page, context or browser has been closed` after a popup
+  save** → the popup's `window.close()` fired. See "Testing the popup."

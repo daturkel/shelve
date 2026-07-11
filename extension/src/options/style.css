@@ -62,6 +62,19 @@ body {
   outline: 1px solid var(--accent);
 }
 
+.field-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.field-checkbox input {
+  width: auto;
+  margin: 0;
+}
+
 .save-btn {
   background: var(--accent);
   border: none;

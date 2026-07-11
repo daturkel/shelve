@@ -12,7 +12,8 @@ function buildOverlay(): { overlay: HTMLElement; box: HTMLElement } {
 
 /** In-window replacement for window.prompt() — same result shape (string
  * or null on cancel), but rendered inside the page instead of as native
- * browser chrome. */
+ * browser chrome. Shared by newtab and popup — both load the same
+ * .modal-* CSS in their respective stylesheets. */
 export function showPrompt(title: string, defaultValue = ""): Promise<string | null> {
   return new Promise((resolve) => {
     const { overlay, box } = buildOverlay();
