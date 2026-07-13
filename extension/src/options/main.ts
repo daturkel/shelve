@@ -39,9 +39,18 @@ async function render() {
   const wrap = document.createElement("div");
   wrap.className = "options";
 
+  const titleRow = document.createElement("div");
+  titleRow.className = "title-row";
   const h1 = document.createElement("h1");
   h1.textContent = "Shelve";
-  wrap.appendChild(h1);
+  titleRow.appendChild(h1);
+  const version = document.createElement("span");
+  version.className = "version";
+  // Read live from the manifest rather than hardcoding, so it can never
+  // drift from the actual installed version.
+  version.textContent = `v${chrome.runtime.getManifest().version}`;
+  titleRow.appendChild(version);
+  wrap.appendChild(titleRow);
 
   const hint = document.createElement("p");
   hint.className = "hint";
