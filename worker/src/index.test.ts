@@ -1,16 +1,24 @@
+import { SCHEMA_VERSION } from "@shelve/shared";
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
+import { WORKER_VERSION } from "./version";
 // @ts-expect-error -- raw text import, handled by the vite/esbuild layer
-import schemaSql from "../schema.sql?raw";
+import initSql from "../migrations/0001_init.sql?raw";
+// @ts-expect-error -- raw text import, handled by the vite/esbuild layer
+import addDeletedAtSql from "../migrations/0002_add_deleted_at.sql?raw";
 
 const TOKEN = "test-token";
 
 beforeAll(async () => {
-  // D1's exec() splits on newlines, not semicolons, so it chokes on our
-  // multi-line-formatted CREATE TABLE statements. Split into individual
+  // Applies the full migration sequence in order, same as
+  // `wrangler d1 migrations apply` would against a real deployment — so
+  // these tests exercise the same schema a fresh production DB ends up
+  // with, rather than a hand-maintained duplicate of it. D1's exec()
+  // splits on newlines, not semicolons, so it chokes on our
+  // multi-line-formatted CREATE TABLE statements; split into individual
   // statements and run them as a batch instead.
-  const statements = (schemaSql as string)
-    .split(";")
+  const statements = [initSql as string, addDeletedAtSql as string]
+    .flatMap((sql) => sql.split(";"))
     .map((s) => s.trim())
     .filter(Boolean);
   await env.DB.batch(statements.map((s) => env.DB.prepare(s)));
@@ -58,7 +66,7 @@ describe("auth", () => {
   it("accepts requests with the right token", async () => {
     const res = await SELF.fetch("https://worker.test/health", { headers: authedHeaders(TOKEN) });
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
+    expect(await res.json()).toEqual({ ok: true, version: WORKER_VERSION, schemaVersion: SCHEMA_VERSION });
   });
 
   it("404s unknown routes", async () => {

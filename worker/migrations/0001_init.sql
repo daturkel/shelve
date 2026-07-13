@@ -3,8 +3,7 @@ CREATE TABLE workspaces (
   name TEXT NOT NULL,
   position INTEGER NOT NULL,
   created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL,
-  deleted_at INTEGER
+  updated_at INTEGER NOT NULL
 );
 
 CREATE TABLE folders (
@@ -13,8 +12,7 @@ CREATE TABLE folders (
   name TEXT NOT NULL,
   position INTEGER NOT NULL,
   created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL,
-  deleted_at INTEGER
+  updated_at INTEGER NOT NULL
 );
 
 CREATE TABLE entries (
@@ -27,6 +25,5 @@ CREATE TABLE entries (
   position INTEGER NOT NULL,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
-  deleted_at INTEGER,
   CHECK (url IS NOT NULL OR note IS NOT NULL)
 );

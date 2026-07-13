@@ -35,3 +35,11 @@ export interface Entry {
 }
 
 export type ResourceKind = "workspaces" | "folders" | "entries";
+
+/** Bumped whenever a file is added to worker/migrations/ — the number
+ * matches the latest migration's numeric prefix. The extension compares
+ * this against the schemaVersion a connected Worker reports from
+ * GET /health, and refuses to sync (rather than risk silently losing
+ * data on a merge against columns the Worker doesn't have yet) if the
+ * Worker is behind. See README.md's "Upgrading" section. */
+export const SCHEMA_VERSION = 2;

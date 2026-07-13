@@ -1,4 +1,5 @@
-import type { Entry, Folder, ResourceKind, Workspace } from "@shelve/shared";
+import { SCHEMA_VERSION, type Entry, type Folder, type ResourceKind, type Workspace } from "@shelve/shared";
+import { WORKER_VERSION } from "./version";
 
 export interface Env {
   DB: D1Database;
@@ -130,7 +131,7 @@ export default {
     }
 
     if (pathname === "/health") {
-      return Response.json({ ok: true });
+      return Response.json({ ok: true, version: WORKER_VERSION, schemaVersion: SCHEMA_VERSION });
     }
 
     if (pathname === "/state" && request.method === "GET") {

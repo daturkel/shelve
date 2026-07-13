@@ -1,7 +1,18 @@
-import { describe, expect, it } from "vitest";
-import { mergeArray, mergeState } from "./sync";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { mergeArray, mergeState, fetchWorkerHealth, isWorkerSchemaCompatible, pushResource } from "./sync";
 import type { State } from "./storage";
-import type { Workspace } from "@shelve/shared";
+import { SCHEMA_VERSION, type Workspace } from "@shelve/shared";
+
+function installChromeConfigMock(config: { workerUrl: string; apiToken: string } | null) {
+  (globalThis as any).chrome = {
+    storage: {
+      local: {
+        get: async () => (config ? { shelve_config: config } : {}),
+        set: async () => {},
+      },
+    },
+  };
+}
 
 function ws(overrides: Partial<Workspace> & { id: string }): Workspace {
   return {
@@ -87,5 +98,127 @@ describe("mergeState", () => {
     const merged = mergeState(local, remote);
     expect(merged.workspaces).toHaveLength(1);
     expect(merged.workspaces[0].id).toBe("not-yet-pushed");
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("fetchWorkerHealth", () => {
+  it("returns null when sync isn't configured", async () => {
+    installChromeConfigMock(null);
+    expect(await fetchWorkerHealth()).toBeNull();
+  });
+
+  it("returns the parsed health payload on success", async () => {
+    installChromeConfigMock({ workerUrl: "https://worker.test", apiToken: "tok" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ ok: true, version: "0.1.0", schemaVersion: SCHEMA_VERSION }),
+      } as Response),
+    );
+    expect(await fetchWorkerHealth()).toEqual({ ok: true, version: "0.1.0", schemaVersion: SCHEMA_VERSION });
+  });
+
+  it("returns null on a failed response", async () => {
+    installChromeConfigMock({ workerUrl: "https://worker.test", apiToken: "tok" });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) } as Response));
+    expect(await fetchWorkerHealth()).toBeNull();
+  });
+});
+
+describe("isWorkerSchemaCompatible", () => {
+  it("is compatible when the Worker's schema is at or ahead of what the client expects", () => {
+    expect(isWorkerSchemaCompatible({ ok: true, version: "x", schemaVersion: SCHEMA_VERSION })).toBe(true);
+    expect(isWorkerSchemaCompatible({ ok: true, version: "x", schemaVersion: SCHEMA_VERSION + 1 })).toBe(
+      true,
+    );
+  });
+
+  it("is incompatible when the Worker's schema is behind", () => {
+    expect(isWorkerSchemaCompatible({ ok: true, version: "x", schemaVersion: SCHEMA_VERSION - 1 })).toBe(
+      false,
+    );
+  });
+});
+
+describe("sync's compatibility gate", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    installChromeConfigMock({ workerUrl: "https://worker.test", apiToken: "tok" });
+  });
+
+  it("skips a write to a Worker whose schema is behind, without ever sending it", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith("/health")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, version: "0.1.0", schemaVersion: SCHEMA_VERSION - 1 }),
+        } as Response;
+      }
+      throw new Error(`unexpected request to ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const fresh = await import("./sync");
+    await fresh.pushResource("workspaces", { id: "a", updated_at: 1 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toContain("/health");
+  });
+
+  it("sends writes once the Worker reports a compatible schema", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith("/health")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, version: "0.1.0", schemaVersion: SCHEMA_VERSION }),
+        } as Response;
+      }
+      return { ok: true, json: async () => ({ ok: true, applied: true }) } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const fresh = await import("./sync");
+    await fresh.pushResource("workspaces", { id: "a", updated_at: 1 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails open (still sends writes) when the health check itself fails, e.g. a transient network issue", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith("/health")) throw new Error("network error");
+      return { ok: true, json: async () => ({ ok: true, applied: true }) } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const fresh = await import("./sync");
+    await fresh.pushResource("workspaces", { id: "a", updated_at: 1 });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("only checks compatibility once per module instance, not once per request", async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith("/health")) {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, version: "0.1.0", schemaVersion: SCHEMA_VERSION }),
+        } as Response;
+      }
+      return { ok: true, json: async () => ({ ok: true, applied: true }) } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const fresh = await import("./sync");
+    await fresh.pushResource("workspaces", { id: "a", updated_at: 1 });
+    await fresh.pushResource("workspaces", { id: "b", updated_at: 1 });
+
+    const healthCalls = fetchMock.mock.calls.filter(([url]) => (url as string).endsWith("/health"));
+    expect(healthCalls).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 });

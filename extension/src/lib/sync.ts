@@ -1,4 +1,4 @@
-import type { Entry, Folder, ResourceKind, Workspace } from "@shelve/shared";
+import { SCHEMA_VERSION, type Entry, type Folder, type ResourceKind, type Workspace } from "@shelve/shared";
 import { getConfig } from "./config";
 import type { State } from "./storage";
 
@@ -41,6 +41,22 @@ export function mergeState(local: State, remote: RemoteState): State {
 async function apiFetch(path: string, init: RequestInit = {}): Promise<Response | null> {
   const config = await getConfig();
   if (!config) return null;
+
+  // The client and a self-hosted Worker are deployed on completely
+  // independent schedules, so never assume they're in lock-step. Gate
+  // every request except /health itself (which checkCompatibility()
+  // depends on) behind a confirmed-compatible schema — a client ahead of
+  // a Worker that hasn't had a required migration applied could otherwise
+  // write columns the Worker silently drops, or merge in remote records
+  // missing a field the local client expects, quietly losing data.
+  if (path !== "/health") {
+    const status = await checkCompatibility();
+    if (status === "incompatible") {
+      console.warn(`shelve sync: skipping ${path} — connected Worker's schema is out of date`);
+      return null;
+    }
+  }
+
   try {
     return await fetch(`${config.workerUrl}${path}`, {
       ...init,
@@ -54,6 +70,44 @@ async function apiFetch(path: string, init: RequestInit = {}): Promise<Response 
     console.error("shelve sync: request failed", path, e);
     return null;
   }
+}
+
+export interface WorkerHealth {
+  ok: boolean;
+  version: string;
+  schemaVersion: number;
+}
+
+/** Hits the Worker's /health endpoint directly. Used internally by the
+ * compatibility gate above, and by the options page to show the connected
+ * Worker's version. Returns null if sync isn't configured or the request
+ * fails. */
+export async function fetchWorkerHealth(): Promise<WorkerHealth | null> {
+  const res = await apiFetch("/health");
+  if (!res || !res.ok) return null;
+  return (await res.json()) as WorkerHealth;
+}
+
+export function isWorkerSchemaCompatible(health: WorkerHealth): boolean {
+  return health.schemaVersion >= SCHEMA_VERSION;
+}
+
+// Memoized per page load (newtab/popup/options each get their own module
+// instance, so this is naturally scoped per page) so every push/pull
+// after the first doesn't pay for an extra round-trip to /health.
+// "unknown" (health check itself failed — e.g. transient network issue)
+// deliberately fails open: only a *confirmed* outdated schema blocks
+// requests, consistent with sync's existing best-effort, never-blocking
+// failure handling.
+let compatibility: Promise<"compatible" | "incompatible" | "unknown"> | null = null;
+
+async function checkCompatibility(): Promise<"compatible" | "incompatible" | "unknown"> {
+  if (!compatibility) {
+    compatibility = fetchWorkerHealth().then((health) =>
+      health ? (isWorkerSchemaCompatible(health) ? "compatible" : "incompatible") : "unknown",
+    );
+  }
+  return compatibility;
 }
 
 /** Fire-and-forget push of a single created/updated resource. Best-effort:
