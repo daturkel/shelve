@@ -70,22 +70,67 @@ export function buildFolders(ctx: AppContext): HTMLElement {
   const query = ctx.searchQuery.trim().toLowerCase();
 
   for (const folder of folders) {
-    container.appendChild(buildFolderSection(ctx, folder, query, folders));
+    container.appendChild(buildFolderSection(ctx, folder, query));
   }
+
+  setUpFolderReordering(ctx, container, folders);
 
   return container;
 }
 
-function buildFolderSection(
-  ctx: AppContext,
-  folder: Folder,
-  query: string,
-  workspaceFolders: Folder[],
-): HTMLElement {
+// Folder reordering: drag one folder's header onto the list to reorder
+// within the workspace. Handled once at the container level rather than
+// per-header — there's no meaningful difference in the UI between
+// "after folder #2" and "before folder #3", so this tracks a single
+// insertion line that snaps to whichever folder boundary is closest to
+// the cursor, rather than highlighting whichever whole folder happens to
+// be underneath it.
+function setUpFolderReordering(ctx: AppContext, container: HTMLElement, workspaceFolders: Folder[]): void {
+  const indicator = document.createElement("div");
+  indicator.className = "folder-drop-indicator";
+
+  function closestBoundary(ev: DragEvent): HTMLElement | null {
+    const sections = Array.from(container.querySelectorAll<HTMLElement>(".folder-section"));
+    return (
+      sections.find((section) => {
+        const rect = section.getBoundingClientRect();
+        return ev.clientY < rect.top + rect.height / 2;
+      }) ?? null
+    );
+  }
+
+  container.ondragover = (ev) => {
+    if (!ev.dataTransfer?.types.includes(FOLDER_MIME)) return;
+    ev.preventDefault();
+    container.insertBefore(indicator, closestBoundary(ev));
+  };
+  container.ondragleave = (ev) => {
+    if (!container.contains(ev.relatedTarget as Node | null)) indicator.remove();
+  };
+  container.ondrop = async (ev) => {
+    const draggedId = ev.dataTransfer?.getData(FOLDER_MIME);
+    const target = closestBoundary(ev);
+    indicator.remove();
+    if (!draggedId) return;
+    ev.preventDefault();
+    if (draggedId === target?.dataset.folderId) return;
+
+    const orderedIds = workspaceFolders.map((f) => f.id).filter((id) => id !== draggedId);
+    const targetIndex = target ? orderedIds.indexOf(target.dataset.folderId!) : orderedIds.length;
+    orderedIds.splice(targetIndex, 0, draggedId);
+
+    const changed = reorderFolders(ctx.state, ctx.activeWorkspaceId, orderedIds);
+    await ctx.rerender();
+    for (const f of changed) void pushResource("folders", f);
+  };
+}
+
+function buildFolderSection(ctx: AppContext, folder: Folder, query: string): HTMLElement {
   const collapsed = ctx.uiState.collapsedFolderIds.includes(folder.id);
 
   const section = document.createElement("div");
   section.className = "folder-section";
+  section.dataset.folderId = folder.id;
 
   const header = document.createElement("div");
   header.className = "folder-header";
@@ -114,19 +159,32 @@ function buildFolderSection(
   name.textContent = folder.name;
   name.title = "Double-click to rename";
   name.onclick = (ev) => ev.stopPropagation();
-  name.ondblclick = async (ev) => {
-    ev.stopPropagation();
+  const renameFolderInteractive = async () => {
     const newName = await showPrompt("Rename folder", folder.name);
     if (!newName || newName === folder.name) return;
     renameFolder(ctx.state, folder.id, newName);
     await ctx.rerender();
     void pushResource("folders", folder);
   };
+  name.ondblclick = async (ev) => {
+    ev.stopPropagation();
+    await renameFolderInteractive();
+  };
   header.appendChild(name);
 
   // Positioned right after the name (not pushed to the far edge of the
   // bar) so revealing it on hover doesn't require crossing a long
   // invisible strip to reach it.
+  const edit = document.createElement("div");
+  edit.className = "folder-edit";
+  edit.textContent = "✎";
+  edit.title = "Rename folder";
+  edit.onclick = async (ev) => {
+    ev.stopPropagation();
+    await renameFolderInteractive();
+  };
+  header.appendChild(edit);
+
   const del = document.createElement("div");
   del.className = "folder-delete";
   del.textContent = "(delete)";
@@ -146,37 +204,13 @@ function buildFolderSection(
   };
   header.appendChild(del);
 
-  // Folder reordering: drag one folder's header onto another's to reorder
-  // within the workspace. Distinct MIME type from tab/entry drags, handled
-  // only on the header (not the whole section) to keep it unambiguous.
+  // Folder reordering: drag one folder's header to start the drag; the
+  // container-level handler in setUpFolderReordering tracks the drop
+  // target and insertion line.
   header.ondragstart = (ev) => {
     ev.stopPropagation();
     ev.dataTransfer?.setData(FOLDER_MIME, folder.id);
     ev.dataTransfer!.effectAllowed = "move";
-  };
-  header.ondragover = (ev) => {
-    if (ev.dataTransfer?.types.includes(FOLDER_MIME)) {
-      ev.preventDefault();
-      ev.stopPropagation();
-      header.classList.add("drag-over");
-    }
-  };
-  header.ondragleave = () => header.classList.remove("drag-over");
-  header.ondrop = async (ev) => {
-    const draggedId = ev.dataTransfer?.getData(FOLDER_MIME);
-    if (!draggedId) return;
-    ev.preventDefault();
-    ev.stopPropagation();
-    header.classList.remove("drag-over");
-    if (draggedId === folder.id) return;
-
-    const orderedIds = workspaceFolders.map((f) => f.id).filter((id) => id !== draggedId);
-    const targetIndex = orderedIds.indexOf(folder.id);
-    orderedIds.splice(targetIndex, 0, draggedId);
-
-    const changed = reorderFolders(ctx.state, ctx.activeWorkspaceId, orderedIds);
-    await ctx.rerender();
-    for (const f of changed) void pushResource("folders", f);
   };
 
   section.appendChild(header);

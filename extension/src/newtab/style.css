@@ -156,8 +156,13 @@ body {
   border-radius: 6px;
   cursor: grab;
 }
-.folder-header.drag-over {
-  outline: 1px dashed var(--accent);
+/* Insertion-line indicator for folder reordering — a single element that
+ * moves to whichever folder boundary is closest to the cursor, rather
+ * than highlighting whichever whole folder happens to be underneath it. */
+.folder-drop-indicator {
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
 }
 .collapse-toggle {
   /* Same brightness as open-tab titles (var(--text), not --text-dim) —
@@ -183,15 +188,18 @@ body {
   color: var(--text);
   cursor: text;
 }
+.folder-edit,
 .folder-delete {
   color: var(--text-dim);
   cursor: pointer;
   font-size: 12px;
   visibility: hidden;
 }
+.folder-header:hover .folder-edit,
 .folder-header:hover .folder-delete {
   visibility: visible;
 }
+.folder-edit:hover,
 .folder-delete:hover {
   color: var(--text);
 }

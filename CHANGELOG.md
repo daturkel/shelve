@@ -9,6 +9,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - Rename an entry's title via a pencil button that appears on hover, next to the existing delete button.
+- Rename a folder via the same hover pencil button, next to "(delete)" — double-click on the folder name still works too.
+
+### Changed
+
+- Dragging a folder to reorder it now shows a single insertion line that snaps to the nearest folder boundary, instead of highlighting whichever whole folder the cursor happened to be over. Also fixes not being able to drop a folder at the very end of the list.
 
 ### Known gaps (tracked, not blocking)
 
