@@ -65,14 +65,17 @@ Save the `API_TOKEN` value too (e.g. in a password manager) — it's a write-onl
 
 ### 3. Load the extension
 
-No Chrome Web Store listing yet — load it unpacked:
+No Chrome Web Store listing yet — load it unpacked.
+Either build it yourself:
 
 ```bash
 cd ../extension
 npm run build
 ```
 
-Then in Chrome: `chrome://extensions` → enable **Developer mode** (top right) → **Load unpacked** → select `extension/dist`.
+...or skip building entirely: grab the latest `shelve-extension-vX.Y.Z.zip` from [Releases](https://github.com/daturkel/shelve/releases) and unzip it.
+
+Then in Chrome: `chrome://extensions` → enable **Developer mode** (top right) → **Load unpacked** → select `extension/dist` (or the folder you just unzipped).
 
 ### 4. Configure sync
 
@@ -95,7 +98,8 @@ cd extension
 npm run build
 ```
 
-Then reload the extension from `chrome://extensions` (the circular reload icon on Shelve's card) — unpacked extensions don't auto-reload on file changes, and there's no Chrome Web Store listing yet to update it for you automatically.
+(Or download the new version's zip from [Releases](https://github.com/daturkel/shelve/releases) instead of building it yourself — same as initial setup.)
+Then reload the extension from `chrome://extensions` (the circular reload icon on Shelve's card, or **Remove** + **Load unpacked** again if you switched to a freshly-unzipped folder) — unpacked extensions don't auto-reload on file or folder changes, and there's no Chrome Web Store listing yet to update it for you automatically.
 
 `wrangler d1 migrations apply` only runs migrations it hasn't already recorded as applied, so it's safe to run on every upgrade whether or not that particular update actually changed the schema.
 If you ever do update the extension before the Worker, the options page will show a clear warning ("Worker: vX.Y.Z — its schema is out of date") and sync pauses itself rather than risk losing data against a schema the Worker doesn't have yet — running the two `wrangler` commands above clears it.
