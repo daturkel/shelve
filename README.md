@@ -1,9 +1,9 @@
 # Shelve
 
-A self-hosted alternative to [Toby](https://www.gettoby.com/): a Chrome extension for saving tabs into folders, synced across your devices via a Cloudflare Worker + D1 database that **you** deploy and own.
+A Chrome extension for saving tabs into folders, synced across your devices via a Cloudflare Worker + D1 database that **you** deploy and own.
 
-Built because Toby's tab-sync has a size limit that's easy to hit if you save a lot of tabs.
-Shelve has no such ceiling, no accounts system, and no third party (not even the developer) ever sees your data — it goes only to the Cloudflare account you configure.
+No accounts system, no arbitrary size limits, and no third party (not even the developer) ever sees your data — it goes only to the Cloudflare account you configure.
+(If you've used [Toby](https://www.gettoby.com/), the shape will be familiar — Shelve started as a self-hosted take on it, built after running into Toby's tab-sync size limit.)
 
 ## What it does
 
@@ -12,12 +12,12 @@ Shelve has no such ceiling, no accounts system, and no third party (not even the
 - **Sync across your devices** through your own Worker + D1 backend.
   Last-write-wins on conflicts; deletes are soft (nothing is destroyed by a sync, ever — see [ARCHITECTURE.md](ARCHITECTURE.md) for why).
 - **Organize** with workspaces → folders → entries, drag-and-drop reordering, rename, search, and collapsible folders.
-- **Import from Toby** (or export back to it), and export/import your own Shelve data as a JSON backup.
+- **Import/export your data** as a JSON backup, or migrate to/from Toby if you're coming from (or trying out) it.
 
 ## Status
 
 Functional, pre-1.0.
-The core save/sync/organize workflow works end-to-end and is unit- and integration-tested; a few nice-to-haves (Toby-parity open-tabs actions, a trash view, tags) are still open.
+The core save/sync/organize workflow works end-to-end and is unit- and integration-tested; a few nice-to-haves (richer open-tabs actions like close/reorder/multi-select, a trash view, tags) are still open.
 
 ## Setup
 
