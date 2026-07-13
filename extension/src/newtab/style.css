@@ -273,6 +273,7 @@ body {
   border: 1px dashed var(--border);
   border-radius: 8px;
   font-size: 15px;
+  line-height: 1;
 }
 .entry.entry-add-link:hover {
   color: var(--text);
