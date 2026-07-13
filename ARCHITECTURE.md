@@ -103,6 +103,14 @@ It also means content is retained rather than erased, which is what makes a futu
 **Practical implication:** normal use of Shelve can never destroy your data through a sync bug — the worst case is a stale write losing a race, which self-heals on the next sync.
 Cloudflare D1's own point-in-time recovery ("Time Travel," see the README FAQ) is the backstop one layer below this, for infrastructure-level issues rather than application logic.
 
+### Schema versioning
+
+The extension and Worker are updated independently by hand (see README.md's "Upgrading"), so the client can never assume the Worker it's talking to has caught up to the schema it expects.
+`GET /health` reports `{ ok, version, schemaVersion }` — `schemaVersion` is a plain integer, bumped in `shared/types.ts`'s `SCHEMA_VERSION` constant whenever a file is added to `worker/migrations/`.
+`extension/src/lib/sync.ts` checks this once per page load (memoized, so it doesn't cost an extra round-trip per request) and refuses to send any further request — logging a warning instead — if the Worker's `schemaVersion` is behind what the client expects.
+A Worker that's merely unreachable (network error, misconfigured URL) is treated differently: sync fails open in that case, consistent with the rest of sync's best-effort, never-blocking error handling.
+The options page surfaces this directly (the connected Worker's version, and a clear warning if it's out of date) rather than leaving it to a console warning only.
+
 ### Client-side merge
 
 `extension/src/lib/sync.ts`'s `mergeArray()` implements the pull side: for each id present in either local or remote, keep whichever has the newer `updated_at`; records present only locally are always kept (never deleted by a pull).
@@ -152,8 +160,7 @@ shelve/
   worker/
     src/index.ts            # routes, auth, upsert-by-recency, soft-delete
     src/index.test.ts
-    schema.sql               # D1 schema (fresh installs)
-    migrations/               # ALTER TABLE migrations for already-deployed DBs
+    migrations/               # numbered D1 schema migrations (wrangler d1 migrations apply), fresh installs and upgrades alike
     wrangler.toml.example    # committed template — real wrangler.toml is gitignored
   extension/
     manifest.json

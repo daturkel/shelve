@@ -12,11 +12,13 @@ Everything so far — no release has been cut yet.
 
 - **Backend:** Cloudflare Worker + D1 database.
   Bearer-token auth, `GET /state` for full reads, per-resource `POST`/`PATCH`/`DELETE` for writes, upsert-by-recency conflict resolution, and soft-delete (`deleted_at`) so sync can never destroy data.
+  Schema changes are numbered migrations (`worker/migrations/`), applied via `wrangler d1 migrations apply` on both fresh installs and upgrades.
+- **Schema versioning:** the Worker reports its version and schema version via `GET /health`; the extension checks compatibility once per page load and pauses sync (rather than risk data loss) if the Worker hasn't caught up on a migration yet — surfaced clearly on the options page instead of just a console warning.
 - **Extension core:** Manifest V3 folder-browser UI (workspaces → folders → entries), local-first via `chrome.storage.local`, drag-and-drop throughout (save a tab, reorder folders, move entries between folders).
 - **Sync:** push-on-mutation plus pull-and-merge against the Worker, last-write-wins by `updated_at`, safe against both accidental data loss and delete propagation.
 - **Toolbar popup:** save the current tab or every tab in the window (via a folder picker), or open the full UI.
 - **Optional new-tab takeover:** on by default, but a real toggle — implemented as a conditional background-worker redirect rather than a static manifest override, so turning it off restores Chrome's actual default new-tab page.
-- **Options page:** Worker URL/token configuration with an immediate connectivity check, the new-tab toggle, and a Data section for backup and Toby migration.
+- **Options page:** Worker URL/token configuration with an immediate connectivity check, the extension's and (when connected) the Worker's version, the new-tab toggle, and a Data section for backup and Toby migration.
 - **Toby migration:** import from Toby's JSON export, export back to Toby's format, plus a native Shelve backup export/import for device migration or safekeeping.
 - **Manual link entry:** a small "+" affordance to add a link by URL (for links not currently open as a tab), with automatic title/favicon fetching.
 - **In-window modal UI:** replaces native `window.prompt()`/`confirm()` throughout, for rename, delete-confirm, and folder/workspace creation.

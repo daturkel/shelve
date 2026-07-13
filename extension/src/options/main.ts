@@ -1,5 +1,12 @@
 import { getConfig, setConfig } from "../lib/config";
-import { fetchRemoteState, mergeState, pushAll, type RemoteState } from "../lib/sync";
+import {
+  fetchRemoteState,
+  fetchWorkerHealth,
+  isWorkerSchemaCompatible,
+  mergeState,
+  pushAll,
+  type RemoteState,
+} from "../lib/sync";
 import { getUiState, setUiState } from "../lib/uiState";
 import { loadState, saveState } from "../lib/storage";
 import { importToby, exportToby, isTobyExport } from "../lib/tobyImport";
@@ -79,6 +86,37 @@ async function render() {
   tokenField.append(tokenLabel, tokenInput);
   wrap.appendChild(tokenField);
 
+  const workerStatus = document.createElement("div");
+  workerStatus.className = "status";
+  wrap.appendChild(workerStatus);
+
+  function setWorkerStatus(text: string, kind: "" | "success" | "error" = "") {
+    workerStatus.textContent = text;
+    workerStatus.className = kind ? `status ${kind}` : "status";
+  }
+
+  // Fetched fresh (not cached) each time this runs — on initial load if
+  // already configured, and again right after a successful Save — so this
+  // always reflects the Worker actually behind the currently-saved
+  // URL/token, not a stale check from a previous session.
+  async function refreshWorkerStatus() {
+    const health = await fetchWorkerHealth();
+    if (!health) {
+      setWorkerStatus("");
+      return;
+    }
+    if (!isWorkerSchemaCompatible(health)) {
+      setWorkerStatus(
+        `Worker: v${health.version} — its schema is out of date. Sync is paused until you upgrade it (see README.md's "Upgrading" section).`,
+        "error",
+      );
+      return;
+    }
+    setWorkerStatus(`Worker: v${health.version}`, "success");
+  }
+
+  if (config) void refreshWorkerStatus();
+
   const newtabField = document.createElement("div");
   newtabField.className = "field field-checkbox";
   const newtabLabel = document.createElement("label");
@@ -138,6 +176,7 @@ async function render() {
         ? "Connected. No existing data yet — you're starting fresh."
         : `Connected. Found ${folderCount} folder${folderCount === 1 ? "" : "s"} and ${entryCount} saved tab${entryCount === 1 ? "" : "s"} — open a new tab to sync them in.`;
     status.className = "status success";
+    void refreshWorkerStatus();
   };
 
   // ---------- Data: backup and Toby migration ----------

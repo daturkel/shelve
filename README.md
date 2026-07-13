@@ -51,7 +51,7 @@ You can also rename `name` (the Worker) and `database_name` (the D1 database) to
 cp wrangler.toml.example wrangler.toml
 # edit wrangler.toml: paste in database_id, optionally rename name/database_name
 
-npx wrangler d1 execute shelve-db --remote --file=schema.sql   # apply the schema
+npx wrangler d1 migrations apply shelve-db --remote   # apply the schema
 
 # generate a random token, then paste it when `secret put` prompts:
 openssl rand -hex 32
@@ -79,15 +79,26 @@ Then in Chrome: `chrome://extensions` → enable **Developer mode** (top right) 
 Click the Shelve toolbar icon → the gear icon (or right-click the extension icon → **Options**).
 Enter the Worker URL and API token from step 2, click **Save** — it'll confirm the connection and tell you if it found existing data.
 
-### Updating the extension later
+### Upgrading
+
+The extension and the Worker are versioned together but deployed independently — you update each by hand, on your own schedule, so they can never be assumed to be in lock-step.
+Update both when you pull a new version of Shelve:
+
+```bash
+cd worker
+npx wrangler d1 migrations apply shelve-db --remote   # applies any new migrations; a no-op if there aren't any
+npx wrangler deploy
+```
 
 ```bash
 cd extension
 npm run build
 ```
 
-Then reload it from `chrome://extensions` (the circular reload icon on Shelve's card).
-Rebuilding alone doesn't update the loaded extension — unpacked extensions don't auto-reload on file changes.
+Then reload the extension from `chrome://extensions` (the circular reload icon on Shelve's card) — unpacked extensions don't auto-reload on file changes, and there's no Chrome Web Store listing yet to update it for you automatically.
+
+`wrangler d1 migrations apply` only runs migrations it hasn't already recorded as applied, so it's safe to run on every upgrade whether or not that particular update actually changed the schema.
+If you ever do update the extension before the Worker, the options page will show a clear warning ("Worker: vX.Y.Z — its schema is out of date") and sync pauses itself rather than risk losing data against a schema the Worker doesn't have yet — running the two `wrangler` commands above clears it.
 
 ## FAQ
 
