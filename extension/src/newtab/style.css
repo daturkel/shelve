@@ -213,6 +213,20 @@ body {
    * target, not a hairline strip under the header. */
   min-height: 72px;
   border-radius: 8px;
+  /* Anchors .entry-drop-indicator's absolute positioning. */
+  position: relative;
+}
+
+/* Insertion-line indicator for entry reordering — absolutely positioned
+ * rather than a real grid item, since a real item would claim a full
+ * column track (per the minmax sizing above) and shove later tiles
+ * aside instead of sitting thinly between them. */
+.entry-drop-indicator {
+  position: absolute;
+  width: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  pointer-events: none;
 }
 
 .entry {

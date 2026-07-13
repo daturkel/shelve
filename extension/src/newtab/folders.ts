@@ -4,7 +4,7 @@ import {
   renameFolder,
   reorderFolders,
   deleteFolder,
-  moveEntry,
+  moveEntryToPosition,
   deleteEntry,
   updateEntryTitle,
 } from "../lib/storage";
@@ -235,6 +235,10 @@ function buildFolderSection(ctx: AppContext, folder: Folder, query: string): HTM
 
     if (!query) {
       grid.appendChild(buildAddLinkTile(ctx, folder));
+      // Precise drag-to-reorder needs the full, unfiltered set of
+      // entries to compute positions against — disabled while a search
+      // query narrows what's actually shown.
+      setUpEntryReordering(ctx, grid, folder);
     }
 
     section.appendChild(grid);
@@ -264,16 +268,96 @@ function buildFolderSection(ctx: AppContext, folder: Folder, query: string): HTM
       return;
     }
 
+    // Fallback for when there's no visible grid to drop onto precisely
+    // (folder collapsed, or search filtering it out) — appends at the
+    // end. When the grid is visible, setUpEntryReordering's own drop
+    // handler on the grid handles this instead, with stopPropagation so
+    // this doesn't also fire.
     const entryId = ev.dataTransfer?.getData(ENTRY_MIME);
     if (entryId) {
-      moveEntry(ctx.state, entryId, folder.id);
+      const changed = moveEntryToPosition(ctx.state, entryId, folder.id, Number.MAX_SAFE_INTEGER);
       await ctx.rerender();
-      const moved = ctx.state.entries.find((e) => e.id === entryId);
-      if (moved) void pushResource("entries", moved);
+      for (const e of changed) void pushResource("entries", e);
     }
   };
 
   return section;
+}
+
+// Entry reordering within (or into, at a precise spot) a folder's grid.
+// Unlike the single-column folder list, entries wrap into rows/columns,
+// so "nearest boundary" is 2D: the closest tile's center decides the
+// row, and cursor.x relative to that tile's center decides before/after.
+// The indicator is absolutely positioned rather than inserted as a real
+// grid item, since a real item would claim a full 180px+ column track
+// (per .entry-grid's minmax sizing) and shove every later tile aside.
+function setUpEntryReordering(ctx: AppContext, grid: HTMLElement, folder: Folder): void {
+  const indicator = document.createElement("div");
+  indicator.className = "entry-drop-indicator";
+
+  function closestTile(ev: DragEvent): { el: HTMLElement; side: "before" | "after" } | null {
+    const tiles = Array.from(grid.querySelectorAll<HTMLElement>(".entry:not(.entry-add-link)"));
+    let best: HTMLElement | null = null;
+    let bestSide: "before" | "after" = "before";
+    let bestDist = Infinity;
+    for (const tile of tiles) {
+      const rect = tile.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dist = Math.hypot(ev.clientX - cx, ev.clientY - cy);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = tile;
+        bestSide = ev.clientX < cx ? "before" : "after";
+      }
+    }
+    return best ? { el: best, side: bestSide } : null;
+  }
+
+  function showIndicator(target: { el: HTMLElement; side: "before" | "after" } | null): void {
+    if (!target) {
+      indicator.remove();
+      return;
+    }
+    const gridRect = grid.getBoundingClientRect();
+    const rect = target.el.getBoundingClientRect();
+    const edge = target.side === "before" ? rect.left : rect.right;
+    indicator.style.top = `${rect.top - gridRect.top}px`;
+    indicator.style.height = `${rect.height}px`;
+    indicator.style.left = `${edge - gridRect.left - 1}px`;
+    grid.appendChild(indicator);
+  }
+
+  grid.ondragover = (ev) => {
+    if (!ev.dataTransfer?.types.includes(ENTRY_MIME)) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    showIndicator(closestTile(ev));
+  };
+  grid.ondragleave = (ev) => {
+    if (!grid.contains(ev.relatedTarget as Node | null)) indicator.remove();
+  };
+  grid.ondrop = async (ev) => {
+    const entryId = ev.dataTransfer?.getData(ENTRY_MIME);
+    const target = closestTile(ev);
+    indicator.remove();
+    if (!entryId) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+
+    const siblingIds = Array.from(grid.querySelectorAll<HTMLElement>(".entry:not(.entry-add-link)"))
+      .map((el) => el.dataset.entryId!)
+      .filter((id) => id !== entryId);
+    let targetIndex = siblingIds.length;
+    if (target) {
+      const idx = siblingIds.indexOf(target.el.dataset.entryId!);
+      targetIndex = target.side === "after" ? idx + 1 : idx;
+    }
+
+    const changed = moveEntryToPosition(ctx.state, entryId, folder.id, targetIndex);
+    await ctx.rerender();
+    for (const e of changed) void pushResource("entries", e);
+  };
 }
 
 /** Small "+" tile for manually adding a link, for URLs you have but
@@ -310,6 +394,7 @@ function buildEntryEl(ctx: AppContext, entry: Entry): HTMLElement {
   const el = document.createElement("div");
   el.className = "entry";
   el.draggable = true;
+  el.dataset.entryId = entry.id;
 
   // Note-only entries (no url) get a distinct glyph instead of the
   // generic favicon placeholder, so they read as "a note" at a glance

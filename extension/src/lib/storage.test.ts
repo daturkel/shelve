@@ -9,7 +9,7 @@ import {
   reorderFolders,
   deleteFolder,
   createEntry,
-  moveEntry,
+  moveEntryToPosition,
   deleteEntry,
   updateEntryNote,
   updateEntryTitle,
@@ -96,31 +96,60 @@ describe("createWorkspace / createFolder / createEntry", () => {
   });
 });
 
-describe("moveEntry", () => {
-  it("moves an entry to a new folder and bumps updated_at", () => {
+describe("moveEntryToPosition", () => {
+  it("reorders within the same folder, shifting only entries between the old and new spot", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "A");
+    const e0 = createEntry(state, folder.id, { url: "https://a.com" });
+    const e1 = createEntry(state, folder.id, { url: "https://b.com" });
+    const e2 = createEntry(state, folder.id, { url: "https://c.com" });
+
+    const changed = moveEntryToPosition(state, e2.id, folder.id, 0);
+
+    expect([e2.position, e0.position, e1.position]).toEqual([0, 1, 2]);
+    expect(changed.map((e) => e.id).sort()).toEqual([e0.id, e1.id, e2.id].sort());
+  });
+
+  it("moves an entry to a different folder at a specific position and closes the gap in the source folder", () => {
     const state = emptyState();
     const ws = createWorkspace(state, "A");
     const folderA = createFolder(state, ws.id, "A");
     const folderB = createFolder(state, ws.id, "B");
-    const entry = createEntry(state, folderA.id, { url: "https://example.com" });
-    const originalUpdatedAt = entry.updated_at;
+    const a0 = createEntry(state, folderA.id, { url: "https://a0.com" });
+    const a1 = createEntry(state, folderA.id, { url: "https://a1.com" });
+    const b0 = createEntry(state, folderB.id, { url: "https://b0.com" });
 
-    moveEntry(state, entry.id, folderB.id);
+    const changed = moveEntryToPosition(state, a1.id, folderB.id, 0);
 
-    expect(entry.folder_id).toBe(folderB.id);
-    expect(entry.updated_at).toBeGreaterThanOrEqual(originalUpdatedAt);
+    expect(a1.folder_id).toBe(folderB.id);
+    expect([a1.position, b0.position]).toEqual([0, 1]);
+    expect(a0.position).toBe(0);
+    expect(changed.map((e) => e.id).sort()).toEqual([a1.id, b0.id].sort());
   });
 
-  it("is a no-op when moving to the same folder", () => {
+  it("clamps an out-of-range index to the end", () => {
     const state = emptyState();
     const ws = createWorkspace(state, "A");
     const folder = createFolder(state, ws.id, "A");
-    const entry = createEntry(state, folder.id, { url: "https://example.com" });
-    const originalUpdatedAt = entry.updated_at;
+    const e0 = createEntry(state, folder.id, { url: "https://a.com" });
+    const e1 = createEntry(state, folder.id, { url: "https://b.com" });
 
-    moveEntry(state, entry.id, folder.id);
+    moveEntryToPosition(state, e0.id, folder.id, Number.MAX_SAFE_INTEGER);
 
-    expect(entry.updated_at).toBe(originalUpdatedAt);
+    expect([e1.position, e0.position]).toEqual([0, 1]);
+  });
+
+  it("is a no-op (nothing returned as changed) when dropped back at its own spot", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "A");
+    const e0 = createEntry(state, folder.id, { url: "https://a.com" });
+    createEntry(state, folder.id, { url: "https://b.com" });
+
+    const changed = moveEntryToPosition(state, e0.id, folder.id, 0);
+
+    expect(changed).toEqual([]);
   });
 });
 

@@ -169,14 +169,61 @@ export function updateEntryTitle(state: State, entryId: string, title: string): 
   return entry;
 }
 
-export function moveEntry(state: State, entryId: string, targetFolderId: string): void {
+/** Moves an entry to `targetIndex` within `targetFolderId`'s entries,
+ * reassigning `folder_id` if that folder differs from where it already
+ * was. `targetIndex` is clamped, so passing something like
+ * `Number.MAX_SAFE_INTEGER` is a normal way to mean "append at the end".
+ * Reindexes both the target folder (to make room) and, if the entry
+ * changed folders, the source folder (to close the gap it left) — only
+ * entries whose position or folder actually changed are returned, so a
+ * drop that lands back where it started is a true no-op. */
+export function moveEntryToPosition(
+  state: State,
+  entryId: string,
+  targetFolderId: string,
+  targetIndex: number,
+): Entry[] {
   const entry = state.entries.find((e) => e.id === entryId);
-  if (!entry || entry.folder_id === targetFolderId) return;
-  entry.folder_id = targetFolderId;
-  entry.position = state.entries.filter(
-    (e) => e.folder_id === targetFolderId && e.id !== entryId,
-  ).length;
-  entry.updated_at = Date.now();
+  if (!entry) return [];
+
+  const now = Date.now();
+  const sourceFolderId = entry.folder_id;
+  const changed: Entry[] = [];
+
+  if (sourceFolderId !== targetFolderId) {
+    entry.folder_id = targetFolderId;
+    entry.updated_at = now;
+    changed.push(entry);
+  }
+
+  const targetSiblingIds = state.entries
+    .filter((e) => e.folder_id === targetFolderId && e.id !== entryId)
+    .sort((a, b) => a.position - b.position)
+    .map((e) => e.id);
+  targetSiblingIds.splice(Math.max(0, Math.min(targetIndex, targetSiblingIds.length)), 0, entryId);
+  targetSiblingIds.forEach((id, index) => {
+    const e = id === entryId ? entry : state.entries.find((x) => x.id === id)!;
+    if (e.position !== index) {
+      e.position = index;
+      e.updated_at = now;
+      if (!changed.includes(e)) changed.push(e);
+    }
+  });
+
+  if (sourceFolderId !== targetFolderId) {
+    const sourceSiblings = state.entries
+      .filter((e) => e.folder_id === sourceFolderId)
+      .sort((a, b) => a.position - b.position);
+    sourceSiblings.forEach((e, index) => {
+      if (e.position !== index) {
+        e.position = index;
+        e.updated_at = now;
+        if (!changed.includes(e)) changed.push(e);
+      }
+    });
+  }
+
+  return changed;
 }
 
 /** Soft-delete: see deleteFolder for why. Returns the deleted entry so

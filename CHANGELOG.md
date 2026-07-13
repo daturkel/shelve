@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Rename an entry's title via a pencil button that appears on hover, next to the existing delete button.
 - Rename a folder via the same hover pencil button, next to "(delete)" — double-click on the folder name still works too.
+- Drag-to-reorder entries within a folder, with an insertion line showing exactly where they'll land. Dragging an entry into a different folder now also lands at a precise spot instead of always appending to the end.
 
 ### Changed
 
