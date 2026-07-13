@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Known gaps (tracked, not blocking)
+
+- No drag-to-reorder for entries within a folder — dropping an entry onto its own folder is a no-op (`moveEntry()` in `extension/src/lib/storage.ts`). Drag-and-drop currently only moves entries between folders and reorders folders themselves.
+
 ## [0.1.0] - 2026-07-13
 
 ### Added
