@@ -1,0 +1,13 @@
+# Guard against committing an actual secret before anything else runs.
+# Specific to this repo's real risk (a Cloudflare API_TOKEN, generated and
+# handled by hand more than once during development) rather than generic
+# paranoia — narrow patterns to avoid false-positiving on every hex string.
+if git diff --cached -U0 | grep -E '^\+' | grep -viE '^\+\+\+' | grep -qE \
+  'API_TOKEN[[:space:]]*=[[:space:]]*[A-Za-z0-9_-]{16,}|-----BEGIN [A-Z ]*PRIVATE KEY-----'
+then
+  echo "pre-commit: staged diff looks like it contains a secret (API_TOKEN=... or a private key block)."
+  echo "If this is a false positive, review the match and commit with --no-verify if you're sure."
+  exit 1
+fi
+
+npx lint-staged
