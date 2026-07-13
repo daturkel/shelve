@@ -162,6 +162,13 @@ export function updateEntryNote(state: State, entryId: string, note: string): En
   return entry;
 }
 
+export function updateEntryTitle(state: State, entryId: string, title: string): Entry {
+  const entry = state.entries.find((e) => e.id === entryId)!;
+  entry.title = title;
+  entry.updated_at = Date.now();
+  return entry;
+}
+
 export function moveEntry(state: State, entryId: string, targetFolderId: string): void {
   const entry = state.entries.find((e) => e.id === entryId);
   if (!entry || entry.folder_id === targetFolderId) return;

@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Rename an entry's title via a pencil button that appears on hover, next to the existing delete button.
+
 ### Known gaps (tracked, not blocking)
 
 - No drag-to-reorder for entries within a folder — dropping an entry onto its own folder is a no-op (`moveEntry()` in `extension/src/lib/storage.ts`). Drag-and-drop currently only moves entries between folders and reorders folders themselves.

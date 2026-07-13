@@ -1,5 +1,13 @@
 import type { Folder, Entry } from "@shelve/shared";
-import { createEntry, renameFolder, reorderFolders, deleteFolder, moveEntry, deleteEntry } from "../lib/storage";
+import {
+  createEntry,
+  renameFolder,
+  reorderFolders,
+  deleteFolder,
+  moveEntry,
+  deleteEntry,
+  updateEntryTitle,
+} from "../lib/storage";
 import { pushResource, pushDelete } from "../lib/sync";
 import { showPrompt, showConfirm } from "../lib/modal";
 import { fetchLinkMetadata } from "../lib/linkMetadata";
@@ -289,6 +297,20 @@ function buildEntryEl(ctx: AppContext, entry: Entry): HTMLElement {
   title.textContent = entry.title || entry.url || entry.note || "Untitled";
   el.appendChild(title);
 
+  const edit = document.createElement("div");
+  edit.className = "entry-edit";
+  edit.textContent = "✎";
+  edit.title = "Rename";
+  edit.onclick = async (ev) => {
+    ev.stopPropagation();
+    const newTitle = await showPrompt("Rename", entry.title || entry.url || entry.note || "");
+    if (!newTitle || newTitle === entry.title) return;
+    updateEntryTitle(ctx.state, entry.id, newTitle);
+    await ctx.rerender();
+    void pushResource("entries", entry);
+  };
+  el.appendChild(edit);
+
   const del = document.createElement("div");
   del.className = "entry-delete";
   del.textContent = "✕";
@@ -301,7 +323,7 @@ function buildEntryEl(ctx: AppContext, entry: Entry): HTMLElement {
   el.appendChild(del);
 
   el.onclick = (ev) => {
-    if (ev.target === del) return;
+    if (ev.target === del || ev.target === edit) return;
     if (entry.url) window.open(entry.url, "_blank");
   };
 

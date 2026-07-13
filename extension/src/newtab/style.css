@@ -237,16 +237,21 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.entry .entry-edit,
 .entry .entry-delete {
-  margin-left: auto;
   color: var(--text-dim);
   visibility: hidden;
   font-size: 12px;
   flex-shrink: 0;
 }
+.entry .entry-edit {
+  margin-left: auto;
+}
+.entry:hover .entry-edit,
 .entry:hover .entry-delete {
   visibility: visible;
 }
+.entry .entry-edit:hover,
 .entry .entry-delete:hover {
   color: var(--text);
 }

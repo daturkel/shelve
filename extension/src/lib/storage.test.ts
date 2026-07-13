@@ -12,6 +12,7 @@ import {
   moveEntry,
   deleteEntry,
   updateEntryNote,
+  updateEntryTitle,
 } from "./storage";
 
 // Minimal in-memory mock of chrome.storage.local, just enough for
@@ -270,6 +271,19 @@ describe("note-only entries", () => {
     const updated = updateEntryNote(state, entry.id, "attached note");
 
     expect(updated.note).toBe("attached note");
+    expect(updated.updated_at).toBeGreaterThanOrEqual(originalUpdatedAt);
+  });
+
+  it("updateEntryTitle sets the title and bumps updated_at", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "Links");
+    const entry = createEntry(state, folder.id, { url: "https://example.com", title: "Example" });
+    const originalUpdatedAt = entry.updated_at;
+
+    const updated = updateEntryTitle(state, entry.id, "Renamed");
+
+    expect(updated.title).toBe("Renamed");
     expect(updated.updated_at).toBeGreaterThanOrEqual(originalUpdatedAt);
   });
 });
