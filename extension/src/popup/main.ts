@@ -1,7 +1,7 @@
 import type { Folder } from "@shelve/shared";
-import { type State, loadState, saveState, createFolder, createEntry } from "../lib/storage";
+import { type State, loadState, saveState, createEntry } from "../lib/storage";
 import { pushResource } from "../lib/sync";
-import { showPrompt } from "../lib/modal";
+import { createFolderInteractive } from "../lib/actions";
 
 type SaveMode = "current" | "all";
 type View = "menu" | { mode: SaveMode };
@@ -106,12 +106,10 @@ async function buildPicker(mode: SaveMode): Promise<HTMLElement> {
   newFolderBtn.className = "menu-btn";
   newFolderBtn.textContent = "+ New Folder";
   newFolderBtn.onclick = async () => {
-    const name = await showPrompt("New folder");
-    if (!name) return;
     const targetWorkspaceId = state.workspaces[0]?.id;
     if (!targetWorkspaceId) return;
-    const folder = createFolder(state, targetWorkspaceId, name);
-    void pushResource("folders", folder);
+    const folder = await createFolderInteractive(state, targetWorkspaceId);
+    if (!folder) return;
     await saveTo(state, folder, mode, status);
   };
   wrap.appendChild(newFolderBtn);
