@@ -169,12 +169,13 @@ async function render() {
       return;
     }
 
+    const workspaceCount = remote.workspaces.filter((w) => w.deleted_at === null).length;
     const folderCount = remote.folders.filter((f) => f.deleted_at === null).length;
     const entryCount = remote.entries.filter((e) => e.deleted_at === null).length;
     status.textContent =
       folderCount === 0 && entryCount === 0
         ? "Connected. No existing data yet — you're starting fresh."
-        : `Connected. Found ${folderCount} folder${folderCount === 1 ? "" : "s"} and ${entryCount} saved tab${entryCount === 1 ? "" : "s"} — open a new tab to sync them in.`;
+        : `Connected. Found ${workspaceCount} workspace${workspaceCount === 1 ? "" : "s"}, ${folderCount} folder${folderCount === 1 ? "" : "s"}, and ${entryCount} saved tab${entryCount === 1 ? "" : "s"} — open a new tab to sync them in.`;
     status.className = "status success";
     void refreshWorkerStatus();
   };
