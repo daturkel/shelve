@@ -15,10 +15,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Dragging a folder to reorder it now shows a single insertion line that snaps to the nearest folder boundary, instead of highlighting whichever whole folder the cursor happened to be over. Also fixes not being able to drop a folder at the very end of the list.
 
-### Known gaps (tracked, not blocking)
-
-- No drag-to-reorder for entries within a folder — dropping an entry onto its own folder is a no-op (`moveEntry()` in `extension/src/lib/storage.ts`). Drag-and-drop currently only moves entries between folders and reorders folders themselves.
-
 ## [0.1.0] - 2026-07-13
 
 ### Added
@@ -38,11 +34,3 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Folder organization:** rename, drag-to-reorder, and collapse/expand (collapse state is device-local, not synced).
 - **Testing:** Worker tests against a real D1 instance (`@cloudflare/vitest-pool-workers`); extension unit tests (Vitest) and a Playwright-driven skill for exercising the built extension in a real Chromium instance.
 - **Docs:** [README.md](README.md) (setup + FAQ) and [ARCHITECTURE.md](ARCHITECTURE.md) (internals).
-
-### Known gaps (tracked, not blocking)
-
-- Notes UI (creating/editing note-only entries) is built at the data layer but currently disabled in the UI pending a better interaction design.
-- Open-tabs panel is read-only browsing plus drag-to-save — no click-to-focus, close button, tab reordering, or multi-select yet.
-- No browsable trash view, tags, or screenshots-per-entry.
-- No Chrome Web Store listing — load-unpacked only.
-- Switching a device's Worker URL/token doesn't clean-swap the local experience: `chrome.storage.local`'s cached state isn't cleared on change, so the next sync merges (unions) local data into the new Worker rather than starting fresh against it — see `mergeState()` in `extension/src/lib/sync.ts`.
