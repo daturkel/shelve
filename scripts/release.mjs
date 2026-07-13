@@ -8,7 +8,10 @@
 // diff, then:
 //   git add -A && git commit -m "Release vX.Y.Z"
 //   git tag vX.Y.Z && git push && git push --tags
-// Pushing the tag triggers .github/workflows/release.yml.
+// Pushing the tag triggers .github/workflows/release.yml, which builds
+// the extension and attaches it to a GitHub Release — it doesn't touch
+// versioning or the changelog itself, so the tag you push always exactly
+// matches what this script already committed.
 //
 // Usage: node scripts/release.mjs 0.2.0   (no leading "v")
 
