@@ -32,3 +32,4 @@ Everything so far — no release has been cut yet.
 - Open-tabs panel is read-only browsing plus drag-to-save — no click-to-focus, close button, tab reordering, or multi-select yet.
 - No browsable trash view, tags, or screenshots-per-entry.
 - No Chrome Web Store listing — load-unpacked only.
+- Switching a device's Worker URL/token doesn't clean-swap the local experience: `chrome.storage.local`'s cached state isn't cleared on change, so the next sync merges (unions) local data into the new Worker rather than starting fresh against it — see `mergeState()` in `extension/src/lib/sync.ts`.
