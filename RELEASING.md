@@ -1,7 +1,4 @@
-# Maintaining
-
-Notes for whoever's cutting releases or updating the README's screenshot — not needed to just use or deploy Shelve.
-See [README.md](README.md) for that.
+# Releasing
 
 ## Versioning
 
