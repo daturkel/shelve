@@ -74,24 +74,24 @@ extension's Chrome profile persists at `/tmp/shelve-ext-profile`
 
 ### Commands
 
-| command | what it does |
-|---|---|
-| `launch` | load `dist/` unpacked into a persistent Chromium context; forwards page `console.*` and uncaught errors to the driver's stdout; discovers the extension id off the MV3 service worker (`context.serviceWorkers()`) for `goto` |
-| `goto <relativePath>` | navigate to `chrome-extension://<id>/<relativePath>` — e.g. `goto newtab/index.html`, `goto options/index.html`, `goto popup/index.html` |
-| `fill <css-sel> -> <value>` | `page.fill()` a real input — e.g. `fill input[type="password"] -> some-token`. Same `->` separator as `drag` (values may contain spaces) |
-| `ss [name]` | screenshot → `/tmp/shots/<name>.png` |
-| `dialog <text>` | arm the *next native* `window.prompt()`/`confirm()` to auto-accept with `<text>` — **not used anywhere in this app**, all dialogs are the in-window modal now (see Gotchas); kept in case a future flow ever needs a real browser dialog |
-| `click <css-sel>` | Playwright `.click()` on a CSS selector — **fails on elements that are only visible on `:hover`** (see Gotchas); use `eval` instead for those |
-| `click-text <text>` | click the first element whose text contains `<text>` — same hover-visibility caveat as `click`. Modal buttons are `OK`/`Cancel`/`Delete` |
-| `dblclick <css-sel>` | double-click — how rename is triggered (`.folder-name`, `.rail-item`) |
-| `drag <fromSel> -> <toSel>` | drag-and-drop `fromSel` onto `toSel` — **note the `->` separator**, not a space (see Gotchas) |
-| `eval <js>` | `page.evaluate()`, prints JSON. Also the escape hatch for clicking hover-only elements: `eval document.querySelector(".folder-delete").click()` bypasses Playwright's visibility check since it's a plain DOM method call |
+| command                          | what it does                                                                                                                                                                                                                                                                    |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `launch`                         | load `dist/` unpacked into a persistent Chromium context; forwards page `console.*` and uncaught errors to the driver's stdout; discovers the extension id off the MV3 service worker (`context.serviceWorkers()`) for `goto`                                                   |
+| `goto <relativePath>`            | navigate to `chrome-extension://<id>/<relativePath>` — e.g. `goto newtab/index.html`, `goto options/index.html`, `goto popup/index.html`                                                                                                                                        |
+| `fill <css-sel> -> <value>`      | `page.fill()` a real input — e.g. `fill input[type="password"] -> some-token`. Same `->` separator as `drag` (values may contain spaces)                                                                                                                                        |
+| `ss [name]`                      | screenshot → `/tmp/shots/<name>.png`                                                                                                                                                                                                                                            |
+| `dialog <text>`                  | arm the _next native_ `window.prompt()`/`confirm()` to auto-accept with `<text>` — **not used anywhere in this app**, all dialogs are the in-window modal now (see Gotchas); kept in case a future flow ever needs a real browser dialog                                        |
+| `click <css-sel>`                | Playwright `.click()` on a CSS selector — **fails on elements that are only visible on `:hover`** (see Gotchas); use `eval` instead for those                                                                                                                                   |
+| `click-text <text>`              | click the first element whose text contains `<text>` — same hover-visibility caveat as `click`. Modal buttons are `OK`/`Cancel`/`Delete`                                                                                                                                        |
+| `dblclick <css-sel>`             | double-click — how rename is triggered (`.folder-name`, `.rail-item`)                                                                                                                                                                                                           |
+| `drag <fromSel> -> <toSel>`      | drag-and-drop `fromSel` onto `toSel` — **note the `->` separator**, not a space (see Gotchas)                                                                                                                                                                                   |
+| `eval <js>`                      | `page.evaluate()`, prints JSON. Also the escape hatch for clicking hover-only elements: `eval document.querySelector(".folder-delete").click()` bypasses Playwright's visibility check since it's a plain DOM method call                                                       |
 | `upload <css-sel> -> <filePath>` | `page.locator(sel).setInputFiles(path)` — works on `<input type="file" hidden>` without a real file-picker dialog. Only accepts a single plain CSS selector (no Playwright `>>` chaining) since it's dispatched through `page.locator()` directly rather than `page.evaluate()` |
-| `wait <ms>` | sleep before the next command (default 500ms) — needed after any mutation before `quit` or checking sync state, since sync pushes are fire-and-forget (see Gotchas) |
-| `storage` | dumps `chrome.storage.local.get("shelve_state")` — the actual persisted app state |
-| `text <css-sel>` | prints `innerText` of the first match — plain `document.querySelector`, so it does **not** support Playwright locator chaining like `>> nth=1`; if a page has multiple matches for the same selector, use `eval` with a manual `document.querySelectorAll(...)[i]` instead |
-| `reload` | reloads the current page |
-| `quit` | closes the browser context, exits |
+| `wait <ms>`                      | sleep before the next command (default 500ms) — needed after any mutation before `quit` or checking sync state, since sync pushes are fire-and-forget (see Gotchas)                                                                                                             |
+| `storage`                        | dumps `chrome.storage.local.get("shelve_state")` — the actual persisted app state                                                                                                                                                                                               |
+| `text <css-sel>`                 | prints `innerText` of the first match — plain `document.querySelector`, so it does **not** support Playwright locator chaining like `>> nth=1`; if a page has multiple matches for the same selector, use `eval` with a manual `document.querySelectorAll(...)[i]` instead      |
+| `reload`                         | reloads the current page                                                                                                                                                                                                                                                        |
+| `quit`                           | closes the browser context, exits                                                                                                                                                                                                                                               |
 
 ## Run (human path)
 
@@ -138,7 +138,7 @@ EOF
 
 Then verify server-side state directly: `curl -H "Authorization: Bearer local-dev-test-token" http://localhost:8787/state`.
 
-To test delete propagation to a *second* device that never deleted
+To test delete propagation to a _second_ device that never deleted
 anything itself (the actual scenario the soft-delete design exists
 for), rerun with a different `PROFILE_DIR` — it gets its own local
 state but talks to the same Worker:
@@ -163,7 +163,7 @@ The popup (`extension/src/popup/`) is driven the same way via
 successful save (~700ms delay) — correct real-world behavior for an
 actual toolbar popup, but it kills the driver's page mid-script since
 we're loading it as a regular tab, not a real popup surface. Capture
-whatever you need to check *before* that timer fires (e.g. `wait 200`
+whatever you need to check _before_ that timer fires (e.g. `wait 200`
 right after the save action, not `wait 1000+`), then verify persistence
 in a **separate** `launch` afterward:
 

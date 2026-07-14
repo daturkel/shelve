@@ -21,7 +21,7 @@ import {
 // loadState()'s get/set round-trip.
 function installChromeStorageMock() {
   const store = new Map<string, unknown>();
-  (globalThis as any).chrome = {
+  (globalThis as Record<string, unknown>).chrome = {
     storage: {
       local: {
         get: async (key: string) => ({ [key]: store.get(key) }),

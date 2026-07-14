@@ -284,7 +284,10 @@ async function render() {
     const state = await loadState();
     const date = new Date().toISOString().slice(0, 10);
     downloadJson(`shelve-toby-export-${date}.json`, exportToby(state));
-    setDataStatus("Toby-format export downloaded. Note-only entries (no URL) aren't included — Toby has no equivalent.", "success");
+    setDataStatus(
+      "Toby-format export downloaded. Note-only entries (no URL) aren't included — Toby has no equivalent.",
+      "success",
+    );
   };
   tobyRow.appendChild(exportTobyBtn);
 

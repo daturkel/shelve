@@ -20,6 +20,8 @@ jobs:
       - run: npm install
       - run: npm run typecheck
       - run: npm run test
+      - run: npm run lint
+      - run: npm run format:check
       - run: npm run build --workspace=extension
       - name: Zip built extension
         run: (cd extension/dist && zip -r "../../shelve-extension-${GITHUB_REF_NAME}.zip" .)

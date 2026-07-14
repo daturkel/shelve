@@ -74,9 +74,7 @@ async function buildPicker(mode: SaveMode): Promise<HTMLElement> {
   wrap.appendChild(title);
 
   const state = await loadState();
-  const workspaces = state.workspaces
-    .filter((w) => w.deleted_at === null)
-    .sort((a, b) => a.position - b.position);
+  const workspaces = state.workspaces.filter((w) => w.deleted_at === null).sort((a, b) => a.position - b.position);
 
   const list = document.createElement("div");
   list.className = "folder-list";

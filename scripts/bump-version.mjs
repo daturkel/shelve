@@ -65,4 +65,6 @@ writeFileSync(
   workerVersionContent.replace(workerVersionPattern, `export const WORKER_VERSION = "${version}";`),
 );
 
-console.log(`Bumped to ${version} everywhere. This is a normal dev commit — review the diff and commit whenever you like.`);
+console.log(
+  `Bumped to ${version} everywhere. This is a normal dev commit — review the diff and commit whenever you like.`,
+);

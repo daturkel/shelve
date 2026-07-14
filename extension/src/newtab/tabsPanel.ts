@@ -303,9 +303,7 @@ function showFolderPickerModal(ctx: AppContext, tabs: chrome.tabs.Tab[]): void {
   const list = document.createElement("div");
   list.className = "folder-list";
 
-  const workspaces = ctx.state.workspaces
-    .filter((w) => w.deleted_at === null)
-    .sort((a, b) => a.position - b.position);
+  const workspaces = ctx.state.workspaces.filter((w) => w.deleted_at === null).sort((a, b) => a.position - b.position);
 
   for (const ws of workspaces) {
     const folders = ctx.state.folders

@@ -9,10 +9,7 @@ import type { State } from "./storage";
  * (a pull-driven delete-by-omission reintroduces the wipe risk we moved
  * away from full-snapshot writes to avoid).
  */
-export function mergeArray<T extends { id: string; updated_at: number }>(
-  local: T[],
-  remote: T[],
-): T[] {
+export function mergeArray<T extends { id: string; updated_at: number }>(local: T[], remote: T[]): T[] {
   const merged = new Map<string, T>();
   for (const item of local) merged.set(item.id, item);
   for (const item of remote) {
@@ -147,10 +144,7 @@ async function checkCompatibility(): Promise<"compatible" | "incompatible" | "un
 /** Fire-and-forget push of a single created/updated resource. Best-effort:
  * failures are logged, not surfaced to the UI or retried — there is no
  * offline queue in this v1. */
-export async function pushResource(
-  kind: ResourceKind,
-  resource: { id: string; updated_at: number },
-): Promise<void> {
+export async function pushResource(kind: ResourceKind, resource: { id: string; updated_at: number }): Promise<void> {
   await apiFetch(`/${kind}/${resource.id}`, {
     method: "POST",
     body: JSON.stringify(resource),

@@ -95,7 +95,7 @@ The Worker's write path is **upsert-by-recency**: a `POST`/`PATCH` only applies 
 This is the result of two earlier designs that didn't work:
 
 - A **full-snapshot write** (`PUT /state` replacing the entire tree) has a real wipe-the-database failure mode: any client bug that pushes an incomplete or empty payload permanently destroys remote data with no undo.
-- **Hard `DELETE` plus a separate tombstone table** fixed the write-safety problem but broke *delete propagation*: the client's merge logic deliberately never removes a local record just because it's absent from a `GET /state` response (same wipe-avoidance principle), so a device pulling after another device's hard-delete would never learn the record was gone — it would keep it forever.
+- **Hard `DELETE` plus a separate tombstone table** fixed the write-safety problem but broke _delete propagation_: the client's merge logic deliberately never removes a local record just because it's absent from a `GET /state` response (same wipe-avoidance principle), so a device pulling after another device's hard-delete would never learn the record was gone — it would keep it forever.
 
 Soft-delete via a `deleted_at` column solves both: still a single targeted write (no wipe risk), and `deleted_at` flows through the exact same "newer `updated_at` wins" merge logic as any other field — a soft-deleted record simply out-recencies a stale non-deleted copy on the next pull, with zero special-cased deletion code.
 It also means content is retained rather than erased, which is what makes a future trash view relatively cheap to add.
@@ -134,11 +134,11 @@ Manifest V3, four surfaces:
   Optionally shown on every new tab (see below), always reachable via the toolbar popup's "Open full UI."
 - **`popup/`** — the toolbar icon's popup: save the current tab, save every tab in the window (both via a folder picker), or open the full UI.
 - **`options/`** — Worker URL + token configuration (with an immediate connectivity check on save), the new-tab toggle, and a "Data" section for Toby import/export and native Shelve backup export/import.
-- **`background/`** — a service worker that implements the *optional* new-tab takeover.
+- **`background/`** — a service worker that implements the _optional_ new-tab takeover.
   There is deliberately no static `chrome_url_overrides.newtab` in the manifest: Chrome has no supported way to dynamically toggle a manifest-level override, and once declared there's no way back to Chrome's real default new-tab page short of the user disabling the extension entirely.
   Instead, the background worker listens for `chrome.tabs.onCreated` and redirects to `newtab/index.html` only when a device-local preference (default: on) says to — off means Chrome's real default page shows, untouched.
 
-Shared code lives in `extension/src/lib/`: local storage/CRUD (`storage.ts`), sync (`sync.ts`), the in-window modal that replaces native `window.prompt()`/`confirm()` (`modal.ts`, used by both `newtab` and `popup`), Toby import/export (`tobyImport.ts`), manually-added-link metadata fetching (`linkMetadata.ts`), and device-local UI/behavior preferences (`uiState.ts` — folder collapse state, the new-tab toggle; deliberately *not* part of the synced data model, since these are per-device presentation choices, not data).
+Shared code lives in `extension/src/lib/`: local storage/CRUD (`storage.ts`), sync (`sync.ts`), the in-window modal that replaces native `window.prompt()`/`confirm()` (`modal.ts`, used by both `newtab` and `popup`), Toby import/export (`tobyImport.ts`), manually-added-link metadata fetching (`linkMetadata.ts`), and device-local UI/behavior preferences (`uiState.ts` — folder collapse state, the new-tab toggle; deliberately _not_ part of the synced data model, since these are per-device presentation choices, not data).
 
 Native HTML5 drag-and-drop throughout (folders reordering within a workspace, entries moving between folders, tabs dragging in from the open tabs panel) — no drag-and-drop library dependency.
 

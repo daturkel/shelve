@@ -245,9 +245,7 @@ function buildFolderSection(ctx: AppContext, folder: Folder, query: string): HTM
       .sort((a, b) => a.position - b.position);
 
     if (query) {
-      entries = entries.filter((e) =>
-        (e.title || e.url || e.note || "").toLowerCase().includes(query),
-      );
+      entries = entries.filter((e) => (e.title || e.url || e.note || "").toLowerCase().includes(query));
     }
 
     for (const entry of entries) {

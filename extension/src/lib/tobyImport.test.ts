@@ -123,7 +123,9 @@ describe("importToby", () => {
           lists: [
             {
               title: "L",
-              cards: [{ title: "no url", url: "", favIconUrl: "", customTitle: "", customDescription: "", description: "" }],
+              cards: [
+                { title: "no url", url: "", favIconUrl: "", customTitle: "", customDescription: "", description: "" },
+              ],
               labelIds: [],
             },
           ],

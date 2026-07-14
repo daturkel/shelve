@@ -33,10 +33,7 @@ const COMMANDS = {
     // instead of forcing HEADLESS=true.
     context = await chromium.launchPersistentContext(PROFILE_DIR, {
       headless: process.env.HEADLESS === "true",
-      args: [
-        `--disable-extensions-except=${DIST_DIR}`,
-        `--load-extension=${DIST_DIR}`,
-      ],
+      args: [`--disable-extensions-except=${DIST_DIR}`, `--load-extension=${DIST_DIR}`],
     });
     await new Promise((r) => setTimeout(r, 1000));
     page = await context.newPage();
@@ -192,7 +189,7 @@ const rl = readline.createInterface({ input: stdin, output: process.stdout, prom
 // the same page/context.
 let queue = Promise.resolve();
 let rlClosed = false; // readline auto-closes on stdin EOF (piped heredoc),
-                       // independent of our queue — guard prompt() after that.
+// independent of our queue — guard prompt() after that.
 const safePrompt = () => {
   if (!rlClosed) rl.prompt();
 };

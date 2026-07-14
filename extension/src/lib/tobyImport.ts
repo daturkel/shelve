@@ -33,11 +33,7 @@ export interface TobyExport {
 }
 
 export function isTobyExport(value: unknown): value is TobyExport {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    Array.isArray((value as { groups?: unknown }).groups)
-  );
+  return typeof value === "object" && value !== null && Array.isArray((value as { groups?: unknown }).groups);
 }
 
 export interface ImportResult {

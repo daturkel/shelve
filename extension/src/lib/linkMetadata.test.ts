@@ -3,10 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fetchLinkMetadata } from "./linkMetadata";
 
 function mockFetch(html: string, ok = true) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn().mockResolvedValue({ ok, text: async () => html } as Response),
-  );
+  vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok, text: async () => html } as Response));
 }
 
 afterEach(() => {

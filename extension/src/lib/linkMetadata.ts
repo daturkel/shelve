@@ -25,9 +25,7 @@ export async function fetchLinkMetadata(url: string, timeoutMs = 5000): Promise<
     // suppress the browser's automatic favicon.ico request — not real
     // icon data. Treat it as "no icon found" rather than an empty image.
     const faviconUrl =
-      iconHref && iconHref !== "data:,"
-        ? new URL(iconHref, url).toString()
-        : new URL("/favicon.ico", url).toString();
+      iconHref && iconHref !== "data:," ? new URL(iconHref, url).toString() : new URL("/favicon.ico", url).toString();
 
     return { title, faviconUrl };
   } catch {

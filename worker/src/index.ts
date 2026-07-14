@@ -113,10 +113,7 @@ async function deleteResource(db: D1Database, kind: ResourceKind, id: string): P
   // field, so the deletion itself propagates on the next sync without any
   // special-cased tombstone bookkeeping. Content is retained, so a future
   // trash view is just "rows where deleted_at IS NOT NULL".
-  await db
-    .prepare(`UPDATE ${table} SET deleted_at = ?, updated_at = ? WHERE id = ?`)
-    .bind(now, now, id)
-    .run();
+  await db.prepare(`UPDATE ${table} SET deleted_at = ?, updated_at = ? WHERE id = ?`).bind(now, now, id).run();
   return Response.json({ ok: true });
 }
 

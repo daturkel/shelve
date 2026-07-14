@@ -23,7 +23,7 @@ The core save/sync/organize workflow works end-to-end and is unit- and integrati
 
 ## Setup
 
-Two pieces: a Cloudflare Worker + D1 database (the sync backend, deployed to *your* Cloudflare account), and the Chrome extension itself.
+Two pieces: a Cloudflare Worker + D1 database (the sync backend, deployed to _your_ Cloudflare account), and the Chrome extension itself.
 
 ### Prerequisites
 
@@ -161,7 +161,7 @@ Any device you don't update (the lost/compromised one) starts getting 401s and c
 There's no way to revoke just one device's access while leaving others on the old token — a real limitation of the single-shared-secret design, acceptable given the intended use case (your own personal devices, not a team).
 
 **Can other people see or use my deployment?**
-Only if they have your Worker URL *and* your API token.
+Only if they have your Worker URL _and_ your API token.
 There's no accounts system — it's designed for one person's own devices.
 
 ## How it's built

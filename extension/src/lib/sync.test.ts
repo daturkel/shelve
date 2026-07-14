@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mergeArray, mergeState, fetchWorkerHealth, isWorkerSchemaCompatible, pushResource } from "./sync";
+import { mergeArray, mergeState, fetchWorkerHealth, isWorkerSchemaCompatible } from "./sync";
 import type { State } from "./storage";
 import { SCHEMA_VERSION, type Workspace } from "@shelve/shared";
 
 function installChromeConfigMock(config: { workerUrl: string; apiToken: string } | null) {
-  (globalThis as any).chrome = {
+  (globalThis as Record<string, unknown>).chrome = {
     storage: {
       local: {
         get: async () => (config ? { shelve_config: config } : {}),
@@ -133,15 +133,11 @@ describe("fetchWorkerHealth", () => {
 describe("isWorkerSchemaCompatible", () => {
   it("is compatible when the Worker's schema is at or ahead of what the client expects", () => {
     expect(isWorkerSchemaCompatible({ ok: true, version: "x", schemaVersion: SCHEMA_VERSION })).toBe(true);
-    expect(isWorkerSchemaCompatible({ ok: true, version: "x", schemaVersion: SCHEMA_VERSION + 1 })).toBe(
-      true,
-    );
+    expect(isWorkerSchemaCompatible({ ok: true, version: "x", schemaVersion: SCHEMA_VERSION + 1 })).toBe(true);
   });
 
   it("is incompatible when the Worker's schema is behind", () => {
-    expect(isWorkerSchemaCompatible({ ok: true, version: "x", schemaVersion: SCHEMA_VERSION - 1 })).toBe(
-      false,
-    );
+    expect(isWorkerSchemaCompatible({ ok: true, version: "x", schemaVersion: SCHEMA_VERSION - 1 })).toBe(false);
   });
 });
 
