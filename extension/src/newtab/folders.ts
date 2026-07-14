@@ -456,9 +456,18 @@ function buildEntryEl(ctx: AppContext, entry: Entry): HTMLElement {
   };
   el.appendChild(del);
 
+  // chrome.tabs.create rather than window.open: the latter has no way to
+  // open a tab without also focusing it, so Cmd/Ctrl-click (and
+  // middle-click, which never fires a plain "click" — only "auxclick",
+  // per spec) couldn't otherwise open in the background the way a normal
+  // link does.
   el.onclick = (ev) => {
     if (ev.target === del || ev.target === edit) return;
-    if (entry.url) window.open(entry.url, "_blank");
+    if (entry.url) void chrome.tabs.create({ url: entry.url, active: !(ev.metaKey || ev.ctrlKey) });
+  };
+  el.onauxclick = (ev) => {
+    if (ev.button !== 1 || ev.target === del || ev.target === edit) return;
+    if (entry.url) void chrome.tabs.create({ url: entry.url, active: false });
   };
 
   el.ondragstart = (ev) => {

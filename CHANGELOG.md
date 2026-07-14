@@ -18,6 +18,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - New "Close tabs after saving them" option (off by default) on the options page — when on, saving a tab via drag or the new multi-select actions closes the source tab afterward.
 - Sync status dot in the newtab toolbar — gray (not configured), green (connected, with a "last synced" tooltip), or red (error) — reflecting the outcome of the most recent sync request, updating live as pushes/pulls resolve in the background.
 - `/` focuses search from anywhere on the page (unless a modal or the search box itself already has focus), and Escape clears it while it's focused.
+- Cmd/Ctrl-click (or middle-click) an entry to open it in a background tab instead of always stealing focus, matching normal browser link behavior.
 
 ### Changed
 
@@ -27,6 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Fixed
 
 - Search now matches an entry's title, URL, and note together. It previously only searched whichever one of those the display fallback (`title || url || note`) picked, so an entry with a title set was unsearchable by its URL.
+- Search lost focus after every single keystroke — it called `ctx.render()` (which tears down and rebuilds the whole app, including the search input itself) and then refocused the now-detached old element, a no-op for the live page.
 
 ## [0.1.0] - 2026-07-13
 

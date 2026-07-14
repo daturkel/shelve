@@ -38,7 +38,14 @@ export function buildToolbar(ctx: AppContext): HTMLElement {
   search.oninput = () => {
     ctx.searchQuery = search.value;
     ctx.render();
-    search.focus();
+    // ctx.render() tears down and rebuilds the whole app (including this
+    // very input), so `search` is now a detached element — focusing it
+    // is a no-op for the live page. Query the fresh one render() just
+    // created instead, and restore the cursor to where typing left it
+    // rather than letting a freshly-created input default to position 0.
+    const fresh = document.querySelector<HTMLInputElement>(".search-input");
+    fresh?.focus();
+    fresh?.setSelectionRange(fresh.value.length, fresh.value.length);
   };
   // Re-rendering with an empty query already drops focus naturally (the
   // whole toolbar, including this input, gets torn down and rebuilt) —
