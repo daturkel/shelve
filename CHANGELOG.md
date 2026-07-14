@@ -13,6 +13,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Drag-to-reorder entries within a folder, with an insertion line showing exactly where they'll land. Dragging an entry into a different folder now also lands at a precise spot instead of always appending to the end.
 - README hero screenshot, generated from a real running build via `npm run screenshot` (`extension/scripts/generate-readme-screenshot.mjs`) rather than a hand-captured image — re-run it whenever the UI changes enough to make the screenshot stale.
 - Trash view: a global (not per-workspace), flat list of every deleted folder and entry, sorted by delete time, with a Restore button on each. Restoring an entry whose folder is also trashed restores that folder too, rather than leaving the entry orphaned or fabricating a duplicate folder. Restore-only for now — see [KNOWN_GAPS.md](KNOWN_GAPS.md).
+- Open-tabs panel is now fully interactive and stays live: it reflects tabs opened/closed/moved elsewhere without a reload, clicking a tab focuses it, a hover close button closes it, and dragging a tab within the panel reorders it — including across windows.
+- Multi-select in the open-tabs panel: a checkbox per tab (visible on hover, or always once checked) drives an "N selected" bar with "Add to folder" (a picker matching the popup's folder list) and "New folder", and dragging any one of several selected tabs now saves all of them, not just the one dragged.
+- New "Close tabs after saving them" option (off by default) on the options page — when on, saving a tab via drag or the new multi-select actions closes the source tab afterward.
 
 ### Changed
 

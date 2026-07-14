@@ -1,4 +1,6 @@
-function buildOverlay(): { overlay: HTMLElement; box: HTMLElement } {
+/** Exported so custom modal-shaped UI (e.g. the tabs-panel folder picker)
+ * can build on the same overlay/box shell without duplicating it. */
+export function buildOverlay(): { overlay: HTMLElement; box: HTMLElement } {
   const overlay = document.createElement("div");
   overlay.className = "modal-overlay";
 

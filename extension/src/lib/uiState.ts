@@ -19,6 +19,11 @@ export interface UiState {
   /** Workspace rail / open-tabs panel collapse state. */
   leftCollapsed: boolean;
   rightCollapsed: boolean;
+  /** When on, dragging (or multi-select-saving) a tab from the open-tabs
+   * panel into a folder closes the source tab once it's saved. Off by
+   * default — saving a tab is meant to be non-destructive unless you
+   * explicitly opt into this. */
+  closeTabOnSave: boolean;
 }
 
 const DEFAULTS: UiState = {
@@ -26,6 +31,7 @@ const DEFAULTS: UiState = {
   showOnNewTab: true,
   leftCollapsed: false,
   rightCollapsed: false,
+  closeTabOnSave: false,
 };
 
 export async function getUiState(): Promise<UiState> {

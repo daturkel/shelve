@@ -5,7 +5,7 @@ import type { AppContext } from "./context";
 import { buildRail } from "./rail";
 import { buildToolbar } from "./toolbar";
 import { buildFolders } from "./folders";
-import { buildTabsPanel } from "./tabsPanel";
+import { buildTabsPanel, watchTabs } from "./tabsPanel";
 import { buildTrash } from "./trash";
 
 let state: State = await loadState();
@@ -26,10 +26,17 @@ const ctx: AppContext = {
   activeWorkspaceId: state.workspaces[0]?.id ?? "",
   searchQuery: "",
   showTrash: false,
+  selectedTabIds: new Set(),
   render,
   rerender,
   persistUiState,
 };
+
+// One-time: registers chrome.tabs.on* listeners for the live-updating
+// tabs panel. Must run once at module scope, not from inside
+// buildTabsPanel (which runs on every render) — registering there would
+// stack a duplicate listener on every re-render.
+watchTabs(ctx);
 
 async function rerender() {
   await saveState(ctx.state);

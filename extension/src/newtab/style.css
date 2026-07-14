@@ -454,6 +454,112 @@ body {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 13px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Checkbox/close hover-reveal — same visibility-toggle pattern as
+ * .entry-edit/.entry-delete, except the checkbox also stays visible once
+ * checked (.tab-item.selected), so the current selection stays legible
+ * without needing to hover every row. */
+.tab-checkbox {
+  flex-shrink: 0;
+  width: 13px;
+  height: 13px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  visibility: hidden;
+}
+.tab-item:hover .tab-checkbox,
+.tab-item.selected .tab-checkbox {
+  visibility: visible;
+}
+.tab-close {
+  color: var(--text-dim);
+  visibility: hidden;
+  font-size: 12px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.tab-item:hover .tab-close {
+  visibility: visible;
+}
+.tab-close:hover {
+  color: var(--text);
+}
+
+.tabs-selection-bar {
+  position: sticky;
+  bottom: -12px; /* cancels .tabs-panel's own padding so this reaches the true bottom edge */
+  margin: 12px -12px -12px;
+  padding: 10px 12px;
+  background: var(--bg-raised);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.tabs-selection-count {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.tabs-selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.tabs-selection-btn {
+  flex: 1;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.tabs-selection-btn:hover {
+  background: var(--bg);
+}
+.tabs-selection-clear {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px;
+  flex-shrink: 0;
+}
+.tabs-selection-clear:hover {
+  color: var(--text);
+}
+
+/* Folder picker (tabs-panel multi-select "Add to folder") — same shape
+ * as popup/style.css's .folder-list/.workspace-label/.folder-item,
+ * duplicated per-file the same way .modal-* already is rather than
+ * shared across popup/newtab's separate stylesheets. */
+.folder-list {
+  max-height: 240px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+.workspace-label {
+  color: var(--text-dim);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin: 8px 0 4px;
+}
+.workspace-label:first-child {
+  margin-top: 0;
+}
+.folder-item {
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.folder-item:hover {
+  background: var(--bg-hover);
 }
 
 /* Modal (in-window replacement for window.prompt/confirm) */

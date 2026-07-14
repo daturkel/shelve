@@ -19,6 +19,34 @@ const TAB_MIME = "application/x-shelve-tab";
 const ENTRY_MIME = "application/x-shelve-entry";
 const FOLDER_MIME = "application/x-shelve-folder";
 
+interface DraggedTab {
+  id: number;
+  url: string;
+  title: string;
+  favIconUrl?: string;
+}
+
+/** Shared by both TAB_MIME drop targets below. The payload is always a
+ * JSON array (tabsPanel.ts sends a one-element array for a single-tab
+ * drag too), so there's one code path regardless of how many tabs were
+ * dragged in. */
+async function createEntriesFromDraggedTabs(ctx: AppContext, folder: Folder, tabData: string): Promise<void> {
+  const tabs = JSON.parse(tabData) as DraggedTab[];
+  const created = tabs.map((tab) =>
+    createEntry(ctx.state, folder.id, {
+      url: tab.url,
+      title: tab.title,
+      favicon_url: tab.favIconUrl ?? null,
+    }),
+  );
+  await ctx.rerender();
+  for (const entry of created) void pushResource("entries", entry);
+
+  if (ctx.uiState.closeTabOnSave) {
+    void chrome.tabs.remove(tabs.map((tab) => tab.id));
+  }
+}
+
 // ---------- Main: folder list ----------
 
 export function buildFolders(ctx: AppContext): HTMLElement {
@@ -53,14 +81,7 @@ export function buildFolders(ctx: AppContext): HTMLElement {
 
       const folder = await createFolderInteractive(ctx.state, ctx.activeWorkspaceId);
       if (!folder) return;
-      const tab = JSON.parse(tabData) as { url: string; title: string; favIconUrl?: string };
-      const entry = createEntry(ctx.state, folder.id, {
-        url: tab.url,
-        title: tab.title,
-        favicon_url: tab.favIconUrl ?? null,
-      });
-      await ctx.rerender();
-      void pushResource("entries", entry);
+      await createEntriesFromDraggedTabs(ctx, folder, tabData);
     };
 
     container.appendChild(hint);
@@ -257,14 +278,7 @@ function buildFolderSection(ctx: AppContext, folder: Folder, query: string): HTM
 
     const tabData = ev.dataTransfer?.getData(TAB_MIME);
     if (tabData) {
-      const tab = JSON.parse(tabData) as { url: string; title: string; favIconUrl?: string };
-      const entry = createEntry(ctx.state, folder.id, {
-        url: tab.url,
-        title: tab.title,
-        favicon_url: tab.favIconUrl ?? null,
-      });
-      await ctx.rerender();
-      void pushResource("entries", entry);
+      await createEntriesFromDraggedTabs(ctx, folder, tabData);
       return;
     }
 

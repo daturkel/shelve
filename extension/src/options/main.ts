@@ -133,8 +133,33 @@ async function render() {
     "When off, new tabs show Chrome's normal default page. Open Shelve anytime from the toolbar button.";
   wrap.appendChild(newtabHint);
 
+  // Mutates the shared uiState object (rather than spreading a stale
+  // page-load snapshot into setUiState) so toggling this checkbox and
+  // then the one below don't clobber each other's change.
   newtabCheckbox.onchange = async () => {
-    await setUiState({ ...uiState, showOnNewTab: newtabCheckbox.checked });
+    uiState.showOnNewTab = newtabCheckbox.checked;
+    await setUiState(uiState);
+  };
+
+  const closeTabField = document.createElement("div");
+  closeTabField.className = "field field-checkbox";
+  const closeTabLabel = document.createElement("label");
+  const closeTabCheckbox = document.createElement("input");
+  closeTabCheckbox.type = "checkbox";
+  closeTabCheckbox.checked = uiState.closeTabOnSave;
+  closeTabLabel.append(closeTabCheckbox, " Close tabs after saving them");
+  closeTabField.appendChild(closeTabLabel);
+  wrap.appendChild(closeTabField);
+
+  const closeTabHint = document.createElement("p");
+  closeTabHint.className = "hint";
+  closeTabHint.textContent =
+    "When on, dragging or saving a tab into a folder closes it afterward. Off by default — saving stays non-destructive unless you turn this on.";
+  wrap.appendChild(closeTabHint);
+
+  closeTabCheckbox.onchange = async () => {
+    uiState.closeTabOnSave = closeTabCheckbox.checked;
+    await setUiState(uiState);
   };
 
   const saveBtn = document.createElement("button");

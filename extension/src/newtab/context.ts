@@ -14,6 +14,10 @@ export interface AppContext {
    * workspace's folders. Transient navigation state, not persisted —
    * always starts back on the folder view. */
   showTrash: boolean;
+  /** Ids of open-tabs-panel tabs currently checked for a multi-select
+   * action (save-to-folder, multi-drag). Transient, not persisted —
+   * pruned down to still-open tab ids on every live tabs refresh. */
+  selectedTabIds: Set<number>;
   /** Re-render from current in-memory state, without persisting. */
   render: () => void;
   /** Persist state, then re-render. */
