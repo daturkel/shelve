@@ -52,7 +52,7 @@ export function buildRail(ctx: AppContext): HTMLElement {
   // something you're looking for was deleted from.
   const trashBtn = document.createElement("div");
   trashBtn.className = "rail-item rail-trash" + (ctx.showTrash ? " active" : "");
-  trashBtn.textContent = "🗑 Trash";
+  trashBtn.textContent = "Trash";
   trashBtn.onclick = () => {
     ctx.showTrash = !ctx.showTrash;
     ctx.render();
