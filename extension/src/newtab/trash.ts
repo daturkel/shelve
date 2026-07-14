@@ -56,13 +56,13 @@ function buildTrashItemEl(ctx: AppContext, item: TrashItem): HTMLElement {
   row.className = "trash-item";
 
   if (item.kind === "folder") {
-    const icon = document.createElement("div");
-    icon.className = "favicon trash-folder-icon";
-    // A plain Unicode glyph, same as the rest of the UI's icons (✕, ▾/▸,
-    // ⚙, ⧉, ☰, ▤ for note entries) — flat and monochrome via `color`,
-    // unlike an emoji like 📁 which renders in full color regardless.
-    icon.textContent = "▢";
-    row.appendChild(icon);
+    // A text badge rather than a glyph — a generic shape like ▢ reads as
+    // just an empty box, easy to mistake for the same placeholder square
+    // shown for an entry with no favicon. Plain text says what it is.
+    const badge = document.createElement("div");
+    badge.className = "trash-folder-badge";
+    badge.textContent = "Folder";
+    row.appendChild(badge);
   } else {
     row.appendChild(buildFaviconEl(item.faviconUrl));
   }
