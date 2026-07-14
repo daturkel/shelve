@@ -43,6 +43,19 @@ watchTabs(ctx);
 // would otherwise trigger a render once one settles after the fact.
 onSyncStatusChange(() => ctx.render());
 
+// One-time: "/" focuses search from anywhere, unless a modal or the
+// search box itself already has focus — otherwise it'd hijack typing "/"
+// into a rename prompt, add-link URL field, etc. Queries fresh each
+// keypress rather than caching a reference, since render() tears down
+// and rebuilds the whole toolbar (including the search input) every time.
+document.addEventListener("keydown", (ev) => {
+  if (ev.key !== "/") return;
+  const active = document.activeElement;
+  if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) return;
+  ev.preventDefault();
+  document.querySelector<HTMLInputElement>(".search-input")?.focus();
+});
+
 async function rerender() {
   await saveState(ctx.state);
   render();

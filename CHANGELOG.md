@@ -17,6 +17,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Multi-select in the open-tabs panel: a checkbox per tab (visible on hover, or always once checked) drives an "N selected" bar with "Add to folder" (a picker matching the popup's folder list) and "New folder", and dragging any one of several selected tabs now saves all of them, not just the one dragged — with a small "N tabs" badge as the drag image so it's clear more than one is coming along, instead of the browser's default single-tile drag preview.
 - New "Close tabs after saving them" option (off by default) on the options page — when on, saving a tab via drag or the new multi-select actions closes the source tab afterward.
 - Sync status dot in the newtab toolbar — gray (not configured), green (connected, with a "last synced" tooltip), or red (error) — reflecting the outcome of the most recent sync request, updating live as pushes/pulls resolve in the background.
+- `/` focuses search from anywhere on the page (unless a modal or the search box itself already has focus), and Escape clears it while it's focused.
 
 ### Changed
 

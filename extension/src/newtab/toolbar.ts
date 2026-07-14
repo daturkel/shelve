@@ -40,6 +40,14 @@ export function buildToolbar(ctx: AppContext): HTMLElement {
     ctx.render();
     search.focus();
   };
+  // Re-rendering with an empty query already drops focus naturally (the
+  // whole toolbar, including this input, gets torn down and rebuilt) —
+  // no explicit .blur() needed.
+  search.onkeydown = (ev) => {
+    if (ev.key !== "Escape") return;
+    ctx.searchQuery = "";
+    ctx.render();
+  };
   toolbar.appendChild(search);
 
   const newFolderBtn = document.createElement("button");
