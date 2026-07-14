@@ -11,8 +11,9 @@ export function buildToolbar(ctx: AppContext): HTMLElement {
   railToggle.className = "icon-btn";
   railToggle.textContent = "☰";
   railToggle.title = "Toggle workspaces";
-  railToggle.onclick = () => {
-    ctx.leftCollapsed = !ctx.leftCollapsed;
+  railToggle.onclick = async () => {
+    ctx.uiState.leftCollapsed = !ctx.uiState.leftCollapsed;
+    await ctx.persistUiState();
     ctx.render();
   };
   toolbar.appendChild(railToggle);
@@ -43,8 +44,9 @@ export function buildToolbar(ctx: AppContext): HTMLElement {
   tabsToggle.className = "icon-btn";
   tabsToggle.textContent = "⧉";
   tabsToggle.title = "Toggle open tabs";
-  tabsToggle.onclick = () => {
-    ctx.rightCollapsed = !ctx.rightCollapsed;
+  tabsToggle.onclick = async () => {
+    ctx.uiState.rightCollapsed = !ctx.uiState.rightCollapsed;
+    await ctx.persistUiState();
     ctx.render();
   };
   toolbar.appendChild(tabsToggle);

@@ -7,7 +7,7 @@ import type { AppContext } from "./context";
 
 export function buildRail(ctx: AppContext): HTMLElement {
   const rail = document.createElement("div");
-  rail.className = "rail" + (ctx.leftCollapsed ? " collapsed" : "");
+  rail.className = "rail" + (ctx.uiState.leftCollapsed ? " collapsed" : "");
 
   const workspaces = ctx.state.workspaces
     .filter((ws) => ws.deleted_at === null)

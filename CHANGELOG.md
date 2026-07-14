@@ -16,6 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Changed
 
 - Dragging a folder to reorder it now shows a single insertion line that snaps to the nearest folder boundary, instead of highlighting whichever whole folder the cursor happened to be over. Also fixes not being able to drop a folder at the very end of the list.
+- Workspace rail / open-tabs panel collapse state now survives a reload (moved into the same device-local `UiState` that already persists collapsed folders) instead of resetting to open every time.
 
 ## [0.1.0] - 2026-07-13
 

@@ -9,8 +9,6 @@ export interface AppContext {
   state: State;
   uiState: UiState;
   activeWorkspaceId: string;
-  leftCollapsed: boolean;
-  rightCollapsed: boolean;
   searchQuery: string;
   /** Re-render from current in-memory state, without persisting. */
   render: () => void;

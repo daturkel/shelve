@@ -16,9 +16,17 @@ export interface UiState {
    * "optional" is implemented as a conditional runtime redirect instead
    * of a static override. */
   showOnNewTab: boolean;
+  /** Workspace rail / open-tabs panel collapse state. */
+  leftCollapsed: boolean;
+  rightCollapsed: boolean;
 }
 
-const DEFAULTS: UiState = { collapsedFolderIds: [], showOnNewTab: true };
+const DEFAULTS: UiState = {
+  collapsedFolderIds: [],
+  showOnNewTab: true,
+  leftCollapsed: false,
+  rightCollapsed: false,
+};
 
 export async function getUiState(): Promise<UiState> {
   const result = await chrome.storage.local.get(UI_STATE_KEY);

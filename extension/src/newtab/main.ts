@@ -23,8 +23,6 @@ const ctx: AppContext = {
   state,
   uiState: await getUiState(),
   activeWorkspaceId: state.workspaces[0]?.id ?? "",
-  leftCollapsed: false,
-  rightCollapsed: false,
   searchQuery: "",
   render,
   rerender,

@@ -7,7 +7,7 @@ const TAB_MIME = "application/x-shelve-tab";
 
 export function buildTabsPanel(ctx: AppContext): HTMLElement {
   const panel = document.createElement("div");
-  panel.className = "tabs-panel" + (ctx.rightCollapsed ? " collapsed" : "");
+  panel.className = "tabs-panel" + (ctx.uiState.rightCollapsed ? " collapsed" : "");
 
   const header = document.createElement("div");
   header.className = "tabs-panel-header";
