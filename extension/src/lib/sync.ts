@@ -38,9 +38,39 @@ export function mergeState(local: State, remote: RemoteState): State {
   };
 }
 
+export type SyncStatus = "unconfigured" | "connected" | "error";
+
+// Per-page-load, in-memory only (same scoping as `compatibility` below) —
+// not worth persisting across reloads for what's ultimately just a
+// status dot's tooltip.
+let syncStatus: SyncStatus = "unconfigured";
+let lastSyncedAt: number | null = null;
+const statusListeners = new Set<(status: SyncStatus, lastSyncedAt: number | null) => void>();
+
+function setSyncStatus(status: SyncStatus): void {
+  syncStatus = status;
+  if (status === "connected") lastSyncedAt = Date.now();
+  for (const listener of statusListeners) listener(syncStatus, lastSyncedAt);
+}
+
+export function getSyncStatus(): { status: SyncStatus; lastSyncedAt: number | null } {
+  return { status: syncStatus, lastSyncedAt };
+}
+
+/** Registers a callback for sync status changes (the toolbar's status
+ * dot). Call once at module scope, same one-registration-only rule as
+ * tabsPanel.ts's watchTabs — calling this from inside a render function
+ * would stack a duplicate listener on every re-render. */
+export function onSyncStatusChange(listener: (status: SyncStatus, lastSyncedAt: number | null) => void): void {
+  statusListeners.add(listener);
+}
+
 async function apiFetch(path: string, init: RequestInit = {}): Promise<Response | null> {
   const config = await getConfig();
-  if (!config) return null;
+  if (!config) {
+    setSyncStatus("unconfigured");
+    return null;
+  }
 
   // The client and a self-hosted Worker are deployed on completely
   // independent schedules, so never assume they're in lock-step. Gate
@@ -53,12 +83,13 @@ async function apiFetch(path: string, init: RequestInit = {}): Promise<Response 
     const status = await checkCompatibility();
     if (status === "incompatible") {
       console.warn(`shelve sync: skipping ${path} — connected Worker's schema is out of date`);
+      setSyncStatus("error");
       return null;
     }
   }
 
   try {
-    return await fetch(`${config.workerUrl}${path}`, {
+    const res = await fetch(`${config.workerUrl}${path}`, {
       ...init,
       headers: {
         ...(init.headers ?? {}),
@@ -66,8 +97,11 @@ async function apiFetch(path: string, init: RequestInit = {}): Promise<Response 
         "Content-Type": "application/json",
       },
     });
+    setSyncStatus(res.ok ? "connected" : "error");
+    return res;
   } catch (e) {
     console.error("shelve sync: request failed", path, e);
+    setSyncStatus("error");
     return null;
   }
 }

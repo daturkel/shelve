@@ -109,6 +109,23 @@ body {
   color: var(--text);
 }
 
+/* Sync status dot, reflecting sync.ts's most recent request outcome. */
+.sync-status {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sync-status-unconfigured {
+  background: var(--text-dim);
+}
+.sync-status-connected {
+  background: #2ecc71;
+}
+.sync-status-error {
+  background: #e74c3c;
+}
+
 .search-input {
   flex: 1;
   max-width: 320px;

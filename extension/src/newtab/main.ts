@@ -1,5 +1,5 @@
 import { type State, loadState, saveState } from "../lib/storage";
-import { pullAndMerge, pushAll } from "../lib/sync";
+import { pullAndMerge, pushAll, onSyncStatusChange } from "../lib/sync";
 import { getUiState, setUiState } from "../lib/uiState";
 import type { AppContext } from "./context";
 import { buildRail } from "./rail";
@@ -37,6 +37,11 @@ const ctx: AppContext = {
 // buildTabsPanel (which runs on every render) — registering there would
 // stack a duplicate listener on every re-render.
 watchTabs(ctx);
+
+// One-time: re-renders the toolbar's sync status dot whenever a push/pull
+// resolves — pushResource/pushDelete are fire-and-forget, so nothing else
+// would otherwise trigger a render once one settles after the fact.
+onSyncStatusChange(() => ctx.render());
 
 async function rerender() {
   await saveState(ctx.state);

@@ -1,7 +1,19 @@
 import { createFolderInteractive } from "../lib/actions";
+import { getSyncStatus } from "../lib/sync";
 import type { AppContext } from "./context";
 
 // ---------- Toolbar: search, new folder, panel toggles ----------
+
+function formatRelativeTime(ts: number): string {
+  const seconds = Math.round((Date.now() - ts) / 1000);
+  if (seconds < 10) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
 
 export function buildToolbar(ctx: AppContext): HTMLElement {
   const toolbar = document.createElement("div");
@@ -40,6 +52,24 @@ export function buildToolbar(ctx: AppContext): HTMLElement {
   };
   toolbar.appendChild(newFolderBtn);
 
+  const { status, lastSyncedAt } = getSyncStatus();
+  const syncDot = document.createElement("div");
+  syncDot.className = `sync-status sync-status-${status}`;
+  syncDot.title =
+    status === "unconfigured"
+      ? "Sync not configured — see Settings"
+      : status === "connected"
+        ? `Synced${lastSyncedAt ? ` — last synced ${formatRelativeTime(lastSyncedAt)}` : ""}`
+        : `Sync error${lastSyncedAt ? ` — last synced ${formatRelativeTime(lastSyncedAt)}` : " — never synced"}`;
+  toolbar.appendChild(syncDot);
+
+  const settingsBtn = document.createElement("button");
+  settingsBtn.className = "icon-btn";
+  settingsBtn.textContent = "⚙";
+  settingsBtn.title = "Settings";
+  settingsBtn.onclick = () => chrome.runtime.openOptionsPage();
+  toolbar.appendChild(settingsBtn);
+
   const tabsToggle = document.createElement("button");
   tabsToggle.className = "icon-btn";
   tabsToggle.textContent = "⧉";
@@ -50,13 +80,6 @@ export function buildToolbar(ctx: AppContext): HTMLElement {
     ctx.render();
   };
   toolbar.appendChild(tabsToggle);
-
-  const settingsBtn = document.createElement("button");
-  settingsBtn.className = "icon-btn";
-  settingsBtn.textContent = "⚙";
-  settingsBtn.title = "Settings";
-  settingsBtn.onclick = () => chrome.runtime.openOptionsPage();
-  toolbar.appendChild(settingsBtn);
 
   return toolbar;
 }
