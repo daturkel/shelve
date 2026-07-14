@@ -6,6 +6,7 @@ import { buildRail } from "./rail";
 import { buildToolbar } from "./toolbar";
 import { buildFolders } from "./folders";
 import { buildTabsPanel } from "./tabsPanel";
+import { buildTrash } from "./trash";
 
 let state: State = await loadState();
 const merged = await pullAndMerge(state);
@@ -24,6 +25,7 @@ const ctx: AppContext = {
   uiState: await getUiState(),
   activeWorkspaceId: state.workspaces[0]?.id ?? "",
   searchQuery: "",
+  showTrash: false,
   render,
   rerender,
   persistUiState,
@@ -55,7 +57,7 @@ function buildMain(): HTMLElement {
   const main = document.createElement("div");
   main.className = "main";
   main.appendChild(buildToolbar(ctx));
-  main.appendChild(buildFolders(ctx));
+  main.appendChild(ctx.showTrash ? buildTrash(ctx) : buildFolders(ctx));
   return main;
 }
 

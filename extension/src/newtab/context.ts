@@ -10,6 +10,10 @@ export interface AppContext {
   uiState: UiState;
   activeWorkspaceId: string;
   searchQuery: string;
+  /** Whether the main area shows the trash instead of the active
+   * workspace's folders. Transient navigation state, not persisted —
+   * always starts back on the folder view. */
+  showTrash: boolean;
   /** Re-render from current in-memory state, without persisting. */
   render: () => void;
   /** Persist state, then re-render. */

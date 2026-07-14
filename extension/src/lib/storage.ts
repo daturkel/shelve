@@ -123,6 +123,69 @@ export function deleteFolder(state: State, folderId: string): { folder: Folder; 
   return { folder, entries };
 }
 
+/** Restores a soft-deleted folder, cascading back every entry of its
+ * currently in the trash — not just ones deleted in the same operation
+ * as the folder (deleteFolder's shared `now` isn't a reliable enough
+ * signal to distinguish "cascaded" from "independent" at Date.now()'s
+ * 1ms resolution: two separate deletes landing in the same millisecond
+ * is entirely plausible, not just a test artifact). Restoring a folder
+ * meaning "bring back everything currently missing from it" is simpler
+ * and avoids that fragility.
+ *
+ * Both the folder and its restored entries land at the end of their
+ * respective lists (like a freshly created one) rather than keeping
+ * their old position — other items may well have taken those positions
+ * since, and a stale position risks colliding with one still in use. */
+export function restoreFolder(state: State, folderId: string): { folder: Folder; entries: Entry[] } {
+  const now = Date.now();
+  const folder = state.folders.find((f) => f.id === folderId)!;
+  folder.deleted_at = null;
+  folder.updated_at = now;
+  folder.position = state.folders.filter(
+    (f) => f.workspace_id === folder.workspace_id && f.id !== folder.id && f.deleted_at === null,
+  ).length;
+
+  const entries = state.entries.filter((e) => e.folder_id === folderId && e.deleted_at !== null);
+  let nextPosition = state.entries.filter((e) => e.folder_id === folderId && e.deleted_at === null).length;
+  for (const entry of entries) {
+    entry.deleted_at = null;
+    entry.updated_at = now;
+    entry.position = nextPosition++;
+  }
+
+  return { folder, entries };
+}
+
+/** Restores a soft-deleted entry. If its folder is also currently in the
+ * trash, restores that folder too rather than leaving the entry orphaned
+ * in a folder no view can reach, or fabricating a duplicate folder — same
+ * id is preserved, and any other entries that were deleted independently
+ * stay in the trash untouched. Both land at the end of their respective
+ * lists rather than a stale old position — see restoreFolder for why. */
+export function restoreEntry(state: State, entryId: string): { entry: Entry; restoredFolder: Folder | null } {
+  const now = Date.now();
+  const entry = state.entries.find((e) => e.id === entryId)!;
+  entry.deleted_at = null;
+  entry.updated_at = now;
+
+  const folder = state.folders.find((f) => f.id === entry.folder_id) ?? null;
+  let restoredFolder: Folder | null = null;
+  if (folder && folder.deleted_at !== null) {
+    folder.deleted_at = null;
+    folder.updated_at = now;
+    folder.position = state.folders.filter(
+      (f) => f.workspace_id === folder.workspace_id && f.id !== folder.id && f.deleted_at === null,
+    ).length;
+    restoredFolder = folder;
+  }
+
+  entry.position = state.entries.filter(
+    (e) => e.folder_id === entry.folder_id && e.id !== entry.id && e.deleted_at === null,
+  ).length;
+
+  return { entry, restoredFolder };
+}
+
 export interface NewEntryData {
   url?: string | null;
   title?: string | null;

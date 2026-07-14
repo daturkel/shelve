@@ -8,9 +8,11 @@ import {
   renameFolder,
   reorderFolders,
   deleteFolder,
+  restoreFolder,
   createEntry,
   moveEntryToPosition,
   deleteEntry,
+  restoreEntry,
   updateEntryNote,
   updateEntryTitle,
 } from "./storage";
@@ -205,6 +207,70 @@ describe("deleteFolder", () => {
 
     expect(result.entries).toHaveLength(0); // already-deleted entry isn't re-reported
     expect(state.entries[0].deleted_at).toBe(deletedAtFromEarlierDelete);
+  });
+});
+
+describe("restoreFolder", () => {
+  it("restores the folder and cascades back every entry still in its trash, however it got there", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "A");
+    const cascaded = createEntry(state, folder.id, { url: "https://a.example" });
+    const deletedEarlier = createEntry(state, folder.id, { url: "https://b.example" });
+    deleteEntry(state, deletedEarlier.id); // deleted independently, before the folder was
+
+    deleteFolder(state, folder.id);
+    const result = restoreFolder(state, folder.id);
+
+    expect(result.folder.deleted_at).toBeNull();
+    expect(result.entries.map((e) => e.id).sort()).toEqual([cascaded.id, deletedEarlier.id].sort());
+    expect(state.entries.find((e) => e.id === cascaded.id)!.deleted_at).toBeNull();
+    expect(state.entries.find((e) => e.id === deletedEarlier.id)!.deleted_at).toBeNull();
+  });
+
+  it("doesn't report an entry from a different folder as restored", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "A");
+    const otherFolder = createFolder(state, ws.id, "B");
+    createEntry(state, folder.id, { url: "https://a.example" });
+    const unrelatedEntry = createEntry(state, otherFolder.id, { url: "https://c.example" });
+    deleteEntry(state, unrelatedEntry.id);
+    deleteFolder(state, folder.id);
+
+    const result = restoreFolder(state, folder.id);
+
+    expect(result.entries.map((e) => e.id)).not.toContain(unrelatedEntry.id);
+    expect(state.entries.find((e) => e.id === unrelatedEntry.id)!.deleted_at).not.toBeNull();
+  });
+});
+
+describe("restoreEntry", () => {
+  it("restores the entry alone when its folder is still active", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "A");
+    const entry = createEntry(state, folder.id, { url: "https://example.com" });
+    deleteEntry(state, entry.id);
+
+    const result = restoreEntry(state, entry.id);
+
+    expect(result.entry.deleted_at).toBeNull();
+    expect(result.restoredFolder).toBeNull();
+  });
+
+  it("also restores its folder when the folder is in the trash too", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "A");
+    const entry = createEntry(state, folder.id, { url: "https://example.com" });
+    deleteFolder(state, folder.id);
+
+    const result = restoreEntry(state, entry.id);
+
+    expect(result.entry.deleted_at).toBeNull();
+    expect(result.restoredFolder?.id).toBe(folder.id);
+    expect(state.folders.find((f) => f.id === folder.id)!.deleted_at).toBeNull();
   });
 });
 

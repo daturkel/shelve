@@ -20,6 +20,7 @@ export function buildRail(ctx: AppContext): HTMLElement {
     item.title = "Double-click to rename";
     item.onclick = () => {
       ctx.activeWorkspaceId = ws.id;
+      ctx.showTrash = false;
       ctx.render();
     };
     item.ondblclick = async (ev) => {
@@ -45,6 +46,18 @@ export function buildRail(ctx: AppContext): HTMLElement {
     void pushResource("workspaces", ws);
   };
   rail.appendChild(addBtn);
+
+  // Global (not per-workspace) — trash isn't scoped to whichever
+  // workspace happens to be active, since you may not remember where
+  // something you're looking for was deleted from.
+  const trashBtn = document.createElement("div");
+  trashBtn.className = "rail-item rail-trash" + (ctx.showTrash ? " active" : "");
+  trashBtn.textContent = "🗑 Trash";
+  trashBtn.onclick = () => {
+    ctx.showTrash = !ctx.showTrash;
+    ctx.render();
+  };
+  rail.appendChild(trashBtn);
 
   return rail;
 }
