@@ -109,12 +109,16 @@ body {
   color: var(--text);
 }
 
-/* Sync status dot, reflecting sync.ts's most recent request outcome. */
+/* Sync status dot, reflecting sync.ts's most recent request outcome.
+ * Unlike its icon-btn neighbors, it has no padding of its own to inset
+ * it from the toolbar's gap — margin matching icon-btn's own 6px
+ * horizontal padding keeps the row's spacing looking consistent. */
 .sync-status {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+  margin: 0 6px;
 }
 .sync-status-unconfigured {
   background: var(--text-dim);
