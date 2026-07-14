@@ -245,7 +245,10 @@ function buildFolderSection(ctx: AppContext, folder: Folder, query: string): HTM
       .sort((a, b) => a.position - b.position);
 
     if (query) {
-      entries = entries.filter((e) => (e.title || e.url || e.note || "").toLowerCase().includes(query));
+      // Matches across all three fields, not just whichever one the
+      // display fallback (title || url || note) happens to pick — an
+      // entry with a title set was previously unsearchable by its URL.
+      entries = entries.filter((e) => [e.title, e.url, e.note].some((field) => field?.toLowerCase().includes(query)));
     }
 
     for (const entry of entries) {

@@ -23,6 +23,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Dragging a folder to reorder it now shows a single insertion line that snaps to the nearest folder boundary, instead of highlighting whichever whole folder the cursor happened to be over. Also fixes not being able to drop a folder at the very end of the list.
 - Workspace rail / open-tabs panel collapse state now survives a reload (moved into the same device-local `UiState` that already persists collapsed folders) instead of resetting to open every time.
 
+### Fixed
+
+- Search now matches an entry's title, URL, and note together. It previously only searched whichever one of those the display fallback (`title || url || note`) picked, so an entry with a title set was unsearchable by its URL.
+
 ## [0.1.0] - 2026-07-13
 
 ### Added
