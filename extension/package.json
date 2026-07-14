@@ -7,7 +7,8 @@
     "build": "vite build && cp manifest.json dist/manifest.json",
     "watch": "vite build --watch",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "screenshot": "node scripts/generate-readme-screenshot.mjs"
   },
   "dependencies": {
     "@shelve/shared": "*"

@@ -11,6 +11,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Rename an entry's title via a pencil button that appears on hover, next to the existing delete button.
 - Rename a folder via the same hover pencil button, next to "(delete)" — double-click on the folder name still works too.
 - Drag-to-reorder entries within a folder, with an insertion line showing exactly where they'll land. Dragging an entry into a different folder now also lands at a precise spot instead of always appending to the end.
+- README hero screenshot, generated from a real running build via `npm run screenshot` (`extension/scripts/generate-readme-screenshot.mjs`) rather than a hand-captured image — re-run it whenever the UI changes enough to make the screenshot stale.
 
 ### Changed
 

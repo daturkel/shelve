@@ -1,5 +1,7 @@
 # Shelve
 
+![Shelve's folder browser, showing two folders of saved links](assets/screenshot.png)
+
 A Chrome extension for saving tabs into folders, synced across your devices via a Cloudflare Worker + D1 database that **you** deploy and own.
 
 No accounts system, no arbitrary size limits, and no third party (not even the developer) ever sees your data — it goes only to the Cloudflare account you configure.
