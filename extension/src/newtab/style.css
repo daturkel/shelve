@@ -534,6 +534,22 @@ body {
   color: var(--text);
 }
 
+/* Custom drag image for a multi-tab drag — see tabsPanel.ts's
+ * ondragstart. Positioned off-screen; setDragImage snapshots it
+ * synchronously, so it never actually becomes visible in place. */
+.tab-drag-badge {
+  position: fixed;
+  top: -1000px;
+  left: -1000px;
+  background: var(--accent);
+  color: white;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 /* Folder picker (tabs-panel multi-select "Add to folder") — same shape
  * as popup/style.css's .folder-list/.workspace-label/.folder-item,
  * duplicated per-file the same way .modal-* already is rather than

@@ -161,6 +161,20 @@ function buildTabItem(ctx: AppContext, tab: chrome.tabs.Tab, allTabs: chrome.tab
     ev.dataTransfer?.setData(TAB_MIME, JSON.stringify(payload));
     ev.dataTransfer?.setData(REORDER_TAB_MIME, String(tab.id));
     ev.dataTransfer!.effectAllowed = "copyMove";
+
+    // Otherwise the browser's default drag image is just this one tile,
+    // giving no hint that dragging it is actually about to bring several
+    // tabs along. setDragImage needs the element attached and rendered
+    // (even off-screen) at the moment it's called — the browser snapshots
+    // it synchronously, so it's safe to remove right after.
+    if (draggedTabs.length > 1) {
+      const badge = document.createElement("div");
+      badge.className = "tab-drag-badge";
+      badge.textContent = `${draggedTabs.length} tabs`;
+      document.body.appendChild(badge);
+      ev.dataTransfer?.setDragImage(badge, 16, 16);
+      setTimeout(() => badge.remove(), 0);
+    }
   };
 
   return el;
