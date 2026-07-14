@@ -172,6 +172,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for the data model, sync design, and repo
 
 See [CHANGELOG.md](CHANGELOG.md).
 For things that are missing or incomplete, see [KNOWN_GAPS.md](KNOWN_GAPS.md).
+For cutting a release or updating the README's screenshot, see [MAINTAINING.md](MAINTAINING.md).
 
 ## License
 
