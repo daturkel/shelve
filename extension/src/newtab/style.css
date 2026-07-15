@@ -367,6 +367,8 @@ body {
   visibility: hidden;
   font-size: 12px;
   flex-shrink: 0;
+  /* Otherwise inherits .entry's cursor: grab — these aren't draggable. */
+  cursor: pointer;
 }
 .entry .entry-edit {
   margin-left: auto;
