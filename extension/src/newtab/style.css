@@ -258,6 +258,9 @@ body {
   border-radius: 6px;
   cursor: grab;
 }
+.folder-header:hover {
+  background: var(--bg-hover);
+}
 /* Insertion-line indicator for folder reordering — a single element that
  * moves to whichever folder boundary is closest to the cursor, rather
  * than highlighting whichever whole folder happens to be underneath it. */
