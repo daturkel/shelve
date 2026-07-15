@@ -29,6 +29,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Search now matches an entry's title, URL, and note together. It previously only searched whichever one of those the display fallback (`title || url || note`) picked, so an entry with a title set was unsearchable by its URL.
 - Search lost focus after every single keystroke — it called `ctx.render()` (which tears down and rebuilds the whole app, including the search input itself) and then refocused the now-detached old element, a no-op for the live page.
+- Open-tabs panel: the checkbox no longer reserves its own always-empty column next to every tab. It now shares the favicon's slot, swapping in over it on hover/selected instead — same approach Toby uses.
 
 ## [0.1.0] - 2026-07-13
 

@@ -464,11 +464,22 @@ body {
 .tab-item:hover {
   background: var(--bg-hover);
 }
-.tab-item .favicon {
+/* Favicon and checkbox stack in one slot rather than each reserving
+ * their own column (Toby does the same thing) — a checkbox that's only
+ * ever shown on hover/selected otherwise leaves a permanent empty gutter
+ * next to every tab, whether or not it's ever going to be checked. */
+.tab-icon-slot {
+  position: relative;
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+}
+.tab-icon-slot .favicon,
+.tab-icon-slot .favicon-placeholder {
+  position: absolute;
+  inset: 0;
   border-radius: 3px;
+  transition: opacity 0.1s;
 }
 .tab-item .title {
   overflow: hidden;
@@ -479,21 +490,30 @@ body {
   min-width: 0;
 }
 
-/* Checkbox/close hover-reveal — same visibility-toggle pattern as
- * .entry-edit/.entry-delete, except the checkbox also stays visible once
- * checked (.tab-item.selected), so the current selection stays legible
- * without needing to hover every row. */
 .tab-checkbox {
-  flex-shrink: 0;
-  width: 13px;
-  height: 13px;
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
   accent-color: var(--accent);
   cursor: pointer;
-  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
 }
+/* Checked stays visible without hovering, so the current selection is
+ * always legible; hovering previews the checkbox even before checking. */
 .tab-item:hover .tab-checkbox,
 .tab-item.selected .tab-checkbox {
-  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+}
+.tab-item:hover .tab-icon-slot .favicon,
+.tab-item:hover .tab-icon-slot .favicon-placeholder,
+.tab-item.selected .tab-icon-slot .favicon,
+.tab-item.selected .tab-icon-slot .favicon-placeholder {
+  opacity: 0;
 }
 .tab-close {
   color: var(--text-dim);

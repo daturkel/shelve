@@ -104,6 +104,15 @@ function buildTabItem(ctx: AppContext, tab: chrome.tabs.Tab, allTabs: chrome.tab
   if (tab.id !== undefined) el.dataset.tabId = String(tab.id);
   if (tab.windowId !== undefined) el.dataset.windowId = String(tab.windowId);
 
+  // Checkbox and favicon share one slot rather than each reserving their
+  // own column — the checkbox is hidden by default and swaps in over the
+  // favicon on hover/selected (CSS), instead of leaving a permanent gap
+  // next to every tab whether or not it's ever going to be checked.
+  const iconSlot = document.createElement("div");
+  iconSlot.className = "tab-icon-slot";
+
+  iconSlot.appendChild(buildFaviconEl(tab.favIconUrl));
+
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.className = "tab-checkbox";
@@ -115,9 +124,9 @@ function buildTabItem(ctx: AppContext, tab: chrome.tabs.Tab, allTabs: chrome.tab
     else ctx.selectedTabIds.delete(tab.id);
     ctx.render();
   };
-  el.appendChild(checkbox);
+  iconSlot.appendChild(checkbox);
 
-  el.appendChild(buildFaviconEl(tab.favIconUrl));
+  el.appendChild(iconSlot);
 
   const title = document.createElement("div");
   title.className = "title";
