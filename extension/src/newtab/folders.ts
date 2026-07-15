@@ -359,6 +359,11 @@ function setUpEntryReordering(ctx: AppContext, grid: HTMLElement, folder: Folder
     if (!entryId) return;
     ev.preventDefault();
     ev.stopPropagation();
+    // The closest tile can be the dragged entry's own — e.g. dropping it
+    // right back where it started. siblingIds below excludes entryId, so
+    // an unguarded lookup would come back -1 and (after clamping) send it
+    // to the very front instead of leaving it where it was.
+    if (target?.el.dataset.entryId === entryId) return;
 
     const siblingIds = Array.from(grid.querySelectorAll<HTMLElement>(".entry:not(.entry-add-link)"))
       .map((el) => el.dataset.entryId!)

@@ -30,6 +30,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Search now matches an entry's title, URL, and note together. It previously only searched whichever one of those the display fallback (`title || url || note`) picked, so an entry with a title set was unsearchable by its URL.
 - Search lost focus after every single keystroke — it called `ctx.render()` (which tears down and rebuilds the whole app, including the search input itself) and then refocused the now-detached old element, a no-op for the live page.
 - Open-tabs panel: the checkbox no longer reserves its own always-empty column next to every tab. It now shares the favicon's slot, swapping in over it on hover/selected instead — same approach Toby uses.
+- Open-tabs panel: some real-world favicons rendered at their native size instead of the intended 16px and overlapped neighboring rows, since `inset: 0` alone doesn't reliably constrain a `position: absolute` `<img>`'s size for every favicon.
+- Dragging an entry within a folder to the spot right before its own current position moved it to the very front of the folder instead of leaving it where it was.
 
 ## [0.1.0] - 2026-07-13
 
