@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-16
+
 ### Added
 
 - Rename an entry's title via a pencil button that appears on hover, next to the existing delete button.

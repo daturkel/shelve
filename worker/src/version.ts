@@ -2,4 +2,4 @@
 // extension/manifest.json's version field, which duplicates
 // extension/package.json's the same way, since neither runtime here reads
 // its own package.json at build time.
-export const WORKER_VERSION = "0.1.0";
+export const WORKER_VERSION = "0.2.0";
