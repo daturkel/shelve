@@ -19,6 +19,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Sync status dot in the newtab toolbar — gray (not configured), green (connected, with a "last synced" tooltip), or red (error) — reflecting the outcome of the most recent sync request, updating live as pushes/pulls resolve in the background.
 - `/` focuses search from anywhere on the page (unless a modal or the search box itself already has focus), and Escape clears it while it's focused.
 - Cmd/Ctrl-click (or middle-click) an entry to open it in a background tab instead of always stealing focus, matching normal browser link behavior.
+- Multi-select for entries: a checkbox per entry (sharing the favicon's hover-reveal slot, same as the open-tabs panel) drives an "N selected" bar docked to the bottom of the main content area, with "Open tabs" (opens every selected entry's URL in the background), "Move" (a folder picker, shared with the open-tabs panel's "Add to folder"), and "Delete". Selection is global across every visible folder, not scoped to one. Dragging any one of several selected entries moves all of them together, with a "N links" badge as the drag image so it's clear more than one is coming along.
 
 ### Changed
 

@@ -2,8 +2,8 @@ import type { Folder } from "@shelve/shared";
 import { createEntry } from "../lib/storage";
 import { pushResource } from "../lib/sync";
 import { createFolderInteractive } from "../lib/actions";
-import { buildOverlay } from "../lib/modal";
 import { buildFaviconEl } from "../lib/favicon";
+import { showFolderPickerModal } from "./folderPicker";
 import type { AppContext } from "./context";
 
 const TAB_MIME = "application/x-shelve-tab";
@@ -269,7 +269,12 @@ function buildSelectionBar(ctx: AppContext, tabs: chrome.tabs.Tab[]): HTMLElemen
   const addBtn = document.createElement("button");
   addBtn.className = "tabs-selection-btn";
   addBtn.textContent = "Add to folder";
-  addBtn.onclick = () => showFolderPickerModal(ctx, tabs);
+  addBtn.onclick = () => {
+    const n = ctx.selectedTabIds.size;
+    showFolderPickerModal(ctx, `Add ${n} tab${n === 1 ? "" : "s"} to…`, (folder) =>
+      saveSelectedTabsTo(ctx, folder, tabs),
+    );
+  };
   actions.appendChild(addBtn);
 
   const newFolderBtn = document.createElement("button");
@@ -294,73 +299,6 @@ function buildSelectionBar(ctx: AppContext, tabs: chrome.tabs.Tab[]): HTMLElemen
 
   bar.appendChild(actions);
   return bar;
-}
-
-/** Same workspace-grouped folder list + "+ New Folder" shape as
- * popup/main.ts's buildPicker, rebuilt here rather than shared — the two
- * contexts save different things (selected tabs vs. current/all tabs)
- * and live in separate pages. */
-function showFolderPickerModal(ctx: AppContext, tabs: chrome.tabs.Tab[]): void {
-  const { overlay, box } = buildOverlay();
-
-  const title = document.createElement("div");
-  title.className = "modal-title";
-  const n = ctx.selectedTabIds.size;
-  title.textContent = `Add ${n} tab${n === 1 ? "" : "s"} to…`;
-  box.appendChild(title);
-
-  const list = document.createElement("div");
-  list.className = "folder-list";
-
-  const workspaces = ctx.state.workspaces.filter((w) => w.deleted_at === null).sort((a, b) => a.position - b.position);
-
-  for (const ws of workspaces) {
-    const folders = ctx.state.folders
-      .filter((f) => f.workspace_id === ws.id && f.deleted_at === null)
-      .sort((a, b) => a.position - b.position);
-    if (folders.length === 0) continue;
-
-    const wsLabel = document.createElement("div");
-    wsLabel.className = "workspace-label";
-    wsLabel.textContent = ws.name;
-    list.appendChild(wsLabel);
-
-    for (const folder of folders) {
-      const item = document.createElement("div");
-      item.className = "folder-item";
-      item.textContent = folder.name;
-      item.onclick = async () => {
-        overlay.remove();
-        await saveSelectedTabsTo(ctx, folder, tabs);
-      };
-      list.appendChild(item);
-    }
-  }
-  box.appendChild(list);
-
-  const newFolderBtn = document.createElement("button");
-  newFolderBtn.className = "new-folder-btn";
-  newFolderBtn.textContent = "+ New Folder";
-  newFolderBtn.onclick = async () => {
-    const folder = await createFolderInteractive(ctx.state, ctx.activeWorkspaceId);
-    if (!folder) return;
-    overlay.remove();
-    await saveSelectedTabsTo(ctx, folder, tabs);
-  };
-  box.appendChild(newFolderBtn);
-
-  const actions = document.createElement("div");
-  actions.className = "modal-actions";
-  const cancelBtn = document.createElement("button");
-  cancelBtn.className = "modal-btn";
-  cancelBtn.textContent = "Cancel";
-  cancelBtn.onclick = () => overlay.remove();
-  actions.appendChild(cancelBtn);
-  box.appendChild(actions);
-
-  overlay.onclick = (ev) => {
-    if (ev.target === overlay) overlay.remove();
-  };
 }
 
 async function saveSelectedTabsTo(ctx: AppContext, folder: Folder, tabs: chrome.tabs.Tab[]): Promise<void> {

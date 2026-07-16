@@ -346,11 +346,27 @@ body {
 .entry:hover {
   background: var(--bg-hover);
 }
-.entry .favicon {
+/* Favicon and checkbox stack in one slot rather than each reserving
+ * their own column — same approach as the open-tabs panel's
+ * .tab-icon-slot. Width/height are set explicitly on top of inset: 0
+ * (not just inset: 0 alone) because some real-world favicons don't
+ * respect inset-based stretching on a position: absolute <img> and
+ * render at native size otherwise. */
+.entry-icon-slot {
+  position: relative;
   width: 16px;
   height: 16px;
   flex-shrink: 0;
+}
+.entry-icon-slot .favicon,
+.entry-icon-slot .favicon-placeholder {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
   border-radius: 3px;
+  transition: opacity 0.1s;
 }
 
 /* Fallback for entries/tabs with no favicon — same footprint as a real
@@ -359,6 +375,33 @@ body {
   background: var(--border);
   border-radius: 3px;
 }
+
+.entry-checkbox {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+}
+/* Checked stays visible without hovering, so the current selection is
+ * always legible; hovering previews the checkbox even before checking. */
+.entry:hover .entry-checkbox,
+.entry.selected .entry-checkbox {
+  opacity: 1;
+  pointer-events: auto;
+}
+.entry:hover .entry-icon-slot .favicon,
+.entry:hover .entry-icon-slot .favicon-placeholder,
+.entry.selected .entry-icon-slot .favicon,
+.entry.selected .entry-icon-slot .favicon-placeholder {
+  opacity: 0;
+}
+
 .entry .title {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -382,6 +425,60 @@ body {
 }
 .entry .entry-edit:hover,
 .entry .entry-delete:hover {
+  color: var(--text);
+}
+
+/* Entry multi-select action bar — same sticky-to-the-bottom-edge trick as
+ * .tabs-selection-bar, adapted to .folders' own padding. A single wide
+ * row rather than tabs' stacked layout, since the main content area is
+ * much wider than the 280px tabs panel — buttons stay their natural
+ * width instead of stretching to fill it. */
+.entry-selection-bar {
+  position: sticky;
+  bottom: -16px;
+  margin: 16px -16px -16px;
+  padding: 10px 16px;
+  background: var(--bg-raised);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.entry-selection-count {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+.entry-selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.entry-selection-btn {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.entry-selection-btn:hover {
+  background: var(--bg);
+}
+.entry-selection-btn-danger:hover {
+  border-color: #c0392b;
+  color: #e74c3c;
+}
+.entry-selection-clear {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px;
+}
+.entry-selection-clear:hover {
   color: var(--text);
 }
 

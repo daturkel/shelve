@@ -18,6 +18,11 @@ export interface AppContext {
    * action (save-to-folder, multi-drag). Transient, not persisted —
    * pruned down to still-open tab ids on every live tabs refresh. */
   selectedTabIds: Set<number>;
+  /** Ids of entries currently checked for a multi-select action (delete,
+   * open as tabs, move, multi-drag). Global across every visible folder,
+   * not scoped to one — same rationale as selectedTabIds being global
+   * across windows. Transient, not persisted. */
+  selectedEntryIds: Set<string>;
   /** Re-render from current in-memory state, without persisting. */
   render: () => void;
   /** Persist state, then re-render. */

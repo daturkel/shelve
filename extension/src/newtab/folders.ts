@@ -13,6 +13,7 @@ import { showPrompt, showConfirm } from "../lib/modal";
 import { fetchLinkMetadata } from "../lib/linkMetadata";
 import { buildFaviconEl } from "../lib/favicon";
 import { createFolderInteractive } from "../lib/actions";
+import { showFolderPickerModal } from "./folderPicker";
 import type { AppContext } from "./context";
 
 const TAB_MIME = "application/x-shelve-tab";
@@ -45,6 +46,28 @@ async function createEntriesFromDraggedTabs(ctx: AppContext, folder: Folder, tab
   if (ctx.uiState.closeTabOnSave) {
     void chrome.tabs.remove(tabs.map((tab) => tab.id));
   }
+}
+
+/** Shared by both ENTRY_MIME drop targets below. `entryIds` lands
+ * consecutively starting at `targetIndex`, preserving their relative
+ * order — moveEntryToPosition re-reads state.entries fresh on every
+ * call, so passing the same very-large targetIndex for every id (the
+ * "append to the end" fallback drop) still works correctly: each one
+ * clamps to whatever the current end is, which grows by one after each
+ * previous entry in the loop has already landed there. */
+async function moveEntriesToPosition(
+  ctx: AppContext,
+  folder: Folder,
+  entryIds: string[],
+  targetIndex: number,
+): Promise<void> {
+  const allChanged: Entry[] = [];
+  entryIds.forEach((id, i) => {
+    allChanged.push(...moveEntryToPosition(ctx.state, id, folder.id, targetIndex + i));
+  });
+  await ctx.rerender();
+  for (const e of allChanged) void pushResource("entries", e);
+  for (const id of entryIds) ctx.selectedEntryIds.delete(id);
 }
 
 // ---------- Main: folder list ----------
@@ -96,7 +119,75 @@ export function buildFolders(ctx: AppContext): HTMLElement {
 
   setUpFolderReordering(ctx, container, folders);
 
+  if (ctx.selectedEntryIds.size > 0) {
+    container.appendChild(buildEntrySelectionBar(ctx));
+  }
+
   return container;
+}
+
+// ---------- Multi-select action bar (Open tabs / Move / Delete) ----------
+
+function buildEntrySelectionBar(ctx: AppContext): HTMLElement {
+  const bar = document.createElement("div");
+  bar.className = "entry-selection-bar";
+
+  const count = document.createElement("div");
+  count.className = "entry-selection-count";
+  count.textContent = `${ctx.selectedEntryIds.size} selected`;
+  bar.appendChild(count);
+
+  const actions = document.createElement("div");
+  actions.className = "entry-selection-actions";
+
+  const openBtn = document.createElement("button");
+  openBtn.className = "entry-selection-btn";
+  openBtn.textContent = "Open tabs";
+  openBtn.onclick = () => {
+    const selected = ctx.state.entries.filter((e) => ctx.selectedEntryIds.has(e.id) && e.url);
+    for (const e of selected) void chrome.tabs.create({ url: e.url!, active: false });
+    ctx.selectedEntryIds.clear();
+    ctx.render();
+  };
+  actions.appendChild(openBtn);
+
+  const moveBtn = document.createElement("button");
+  moveBtn.className = "entry-selection-btn";
+  moveBtn.textContent = "Move";
+  moveBtn.onclick = () => {
+    const n = ctx.selectedEntryIds.size;
+    showFolderPickerModal(ctx, `Move ${n} link${n === 1 ? "" : "s"} to…`, (folder) =>
+      moveEntriesToPosition(ctx, folder, Array.from(ctx.selectedEntryIds), Number.MAX_SAFE_INTEGER),
+    );
+  };
+  actions.appendChild(moveBtn);
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.className = "entry-selection-btn entry-selection-btn-danger";
+  deleteBtn.textContent = "Delete";
+  deleteBtn.onclick = async () => {
+    const ids = Array.from(ctx.selectedEntryIds);
+    const ok = await showConfirm(`Delete ${ids.length} link${ids.length === 1 ? "" : "s"}?`);
+    if (!ok) return;
+    for (const id of ids) deleteEntry(ctx.state, id);
+    ctx.selectedEntryIds.clear();
+    await ctx.rerender();
+    for (const id of ids) void pushDelete("entries", id);
+  };
+  actions.appendChild(deleteBtn);
+
+  const clearBtn = document.createElement("button");
+  clearBtn.className = "entry-selection-clear";
+  clearBtn.textContent = "✕";
+  clearBtn.title = "Clear selection";
+  clearBtn.onclick = () => {
+    ctx.selectedEntryIds.clear();
+    ctx.render();
+  };
+  actions.appendChild(clearBtn);
+
+  bar.appendChild(actions);
+  return bar;
 }
 
 // Folder reordering: drag one folder's header onto the list to reorder
@@ -288,11 +379,10 @@ function buildFolderSection(ctx: AppContext, folder: Folder, query: string): HTM
     // end. When the grid is visible, setUpEntryReordering's own drop
     // handler on the grid handles this instead, with stopPropagation so
     // this doesn't also fire.
-    const entryId = ev.dataTransfer?.getData(ENTRY_MIME);
-    if (entryId) {
-      const changed = moveEntryToPosition(ctx.state, entryId, folder.id, Number.MAX_SAFE_INTEGER);
-      await ctx.rerender();
-      for (const e of changed) void pushResource("entries", e);
+    const entryData = ev.dataTransfer?.getData(ENTRY_MIME);
+    if (entryData) {
+      const entryIds = JSON.parse(entryData) as string[];
+      await moveEntriesToPosition(ctx, folder, entryIds, Number.MAX_SAFE_INTEGER);
     }
   };
 
@@ -353,30 +443,30 @@ function setUpEntryReordering(ctx: AppContext, grid: HTMLElement, folder: Folder
     if (!grid.contains(ev.relatedTarget as Node | null)) indicator.remove();
   };
   grid.ondrop = async (ev) => {
-    const entryId = ev.dataTransfer?.getData(ENTRY_MIME);
+    const entryData = ev.dataTransfer?.getData(ENTRY_MIME);
     const target = closestTile(ev);
     indicator.remove();
-    if (!entryId) return;
+    if (!entryData) return;
     ev.preventDefault();
     ev.stopPropagation();
-    // The closest tile can be the dragged entry's own — e.g. dropping it
-    // right back where it started. siblingIds below excludes entryId, so
-    // an unguarded lookup would come back -1 and (after clamping) send it
-    // to the very front instead of leaving it where it was.
-    if (target?.el.dataset.entryId === entryId) return;
+    const entryIds = JSON.parse(entryData) as string[];
+    // The closest tile can be one of the dragged entries' own — e.g.
+    // dropping (part of) a selection right back where it started.
+    // siblingIds below excludes every dragged id, so an unguarded lookup
+    // would come back -1 and (after clamping) send it to the very front
+    // instead of leaving it where it was.
+    if (target && entryIds.includes(target.el.dataset.entryId!)) return;
 
     const siblingIds = Array.from(grid.querySelectorAll<HTMLElement>(".entry:not(.entry-add-link)"))
       .map((el) => el.dataset.entryId!)
-      .filter((id) => id !== entryId);
+      .filter((id) => !entryIds.includes(id));
     let targetIndex = siblingIds.length;
     if (target) {
       const idx = siblingIds.indexOf(target.el.dataset.entryId!);
       targetIndex = target.side === "after" ? idx + 1 : idx;
     }
 
-    const changed = moveEntryToPosition(ctx.state, entryId, folder.id, targetIndex);
-    await ctx.rerender();
-    for (const e of changed) void pushResource("entries", e);
+    await moveEntriesToPosition(ctx, folder, entryIds, targetIndex);
   };
 }
 
@@ -411,10 +501,19 @@ function normalizeUrl(input: string): string {
 }
 
 function buildEntryEl(ctx: AppContext, entry: Entry): HTMLElement {
+  const selected = ctx.selectedEntryIds.has(entry.id);
+
   const el = document.createElement("div");
-  el.className = "entry";
+  el.className = "entry" + (selected ? " selected" : "");
   el.draggable = true;
   el.dataset.entryId = entry.id;
+
+  // Checkbox and favicon share one slot rather than each reserving their
+  // own column, same as the open-tabs panel's .tab-icon-slot — swaps in
+  // over the favicon on hover/selected (CSS) instead of leaving a
+  // permanent gap next to every entry.
+  const iconSlot = document.createElement("div");
+  iconSlot.className = "entry-icon-slot";
 
   // Note-only entries (no url) get a distinct glyph instead of the
   // generic favicon placeholder, so they read as "a note" at a glance
@@ -423,13 +522,27 @@ function buildEntryEl(ctx: AppContext, entry: Entry): HTMLElement {
   // design doc — but existing note-only entries, e.g. from a native
   // backup import, still render correctly.)
   if (entry.url) {
-    el.appendChild(buildFaviconEl(entry.favicon_url));
+    iconSlot.appendChild(buildFaviconEl(entry.favicon_url));
   } else {
     const noteIcon = document.createElement("div");
     noteIcon.className = "favicon note-icon";
     noteIcon.textContent = "▤";
-    el.appendChild(noteIcon);
+    iconSlot.appendChild(noteIcon);
   }
+
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.className = "entry-checkbox";
+  checkbox.checked = selected;
+  checkbox.onclick = (ev) => {
+    ev.stopPropagation();
+    if (checkbox.checked) ctx.selectedEntryIds.add(entry.id);
+    else ctx.selectedEntryIds.delete(entry.id);
+    ctx.render();
+  };
+  iconSlot.appendChild(checkbox);
+
+  el.appendChild(iconSlot);
 
   const title = document.createElement("div");
   title.className = "title";
@@ -456,6 +569,7 @@ function buildEntryEl(ctx: AppContext, entry: Entry): HTMLElement {
   del.onclick = async (ev) => {
     ev.stopPropagation();
     deleteEntry(ctx.state, entry.id);
+    ctx.selectedEntryIds.delete(entry.id);
     await ctx.rerender();
     void pushDelete("entries", entry.id);
   };
@@ -467,17 +581,34 @@ function buildEntryEl(ctx: AppContext, entry: Entry): HTMLElement {
   // per spec) couldn't otherwise open in the background the way a normal
   // link does.
   el.onclick = (ev) => {
-    if (ev.target === del || ev.target === edit) return;
+    if (ev.target === del || ev.target === edit || ev.target === checkbox) return;
     if (entry.url) void chrome.tabs.create({ url: entry.url, active: !(ev.metaKey || ev.ctrlKey) });
   };
   el.onauxclick = (ev) => {
-    if (ev.button !== 1 || ev.target === del || ev.target === edit) return;
+    if (ev.button !== 1 || ev.target === del || ev.target === edit || ev.target === checkbox) return;
     if (entry.url) void chrome.tabs.create({ url: entry.url, active: false });
   };
 
+  // A multi-select drag (this entry is part of a selection of more than
+  // one) carries every selected entry's id, same array-payload approach
+  // as the tabs panel's multi-drag — the single-entry case is just a
+  // one-element array, so drop handlers have one code path either way.
   el.ondragstart = (ev) => {
-    ev.dataTransfer?.setData(ENTRY_MIME, entry.id);
+    const draggedIds = selected && ctx.selectedEntryIds.size > 1 ? Array.from(ctx.selectedEntryIds) : [entry.id];
+    ev.dataTransfer?.setData(ENTRY_MIME, JSON.stringify(draggedIds));
     ev.dataTransfer!.effectAllowed = "move";
+
+    // Otherwise the browser's default drag image is just this one tile,
+    // giving no hint that dragging it is actually about to bring several
+    // links along — same technique as the tabs panel's multi-drag badge.
+    if (draggedIds.length > 1) {
+      const badge = document.createElement("div");
+      badge.className = "tab-drag-badge";
+      badge.textContent = `${draggedIds.length} links`;
+      document.body.appendChild(badge);
+      ev.dataTransfer?.setDragImage(badge, 16, 16);
+      setTimeout(() => badge.remove(), 0);
+    }
   };
 
   return el;

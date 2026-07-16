@@ -27,6 +27,7 @@ const ctx: AppContext = {
   searchQuery: "",
   showTrash: false,
   selectedTabIds: new Set(),
+  selectedEntryIds: new Set(),
   render,
   rerender,
   persistUiState,
