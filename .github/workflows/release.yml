@@ -26,7 +26,7 @@ jobs:
       - name: Zip built extension
         run: (cd extension/dist && zip -r "../../shelve-extension-${GITHUB_REF_NAME}.zip" .)
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: shelve-extension-${{ github.ref_name }}.zip
           body: |
