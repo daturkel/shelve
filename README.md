@@ -1,5 +1,9 @@
 # Shelve
 
+[![CI](https://github.com/daturkel/shelve/actions/workflows/ci.yml/badge.svg)](https://github.com/daturkel/shelve/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/daturkel/shelve)](https://github.com/daturkel/shelve/releases)
+[![License: MIT](https://img.shields.io/github/license/daturkel/shelve)](LICENSE)
+
 ![Shelve's folder browser, showing two folders of saved links](assets/screenshot.png)
 
 A Chrome extension for saving tabs into folders, synced across your devices via a Cloudflare Worker + D1 database that **you** deploy and own.
