@@ -1,10 +1,47 @@
+/* Dark palette is the default (no data-theme attribute, and no OS light
+ * preference). Light overrides below apply either via the OS-level
+ * prefers-color-scheme media query (when the user hasn't explicitly
+ * chosen a theme — see lib/theme.ts) or explicitly via data-theme,
+ * which always wins over the media query. --success/--error are pastel
+ * shades tuned for the dark background above; the light overrides below
+ * swap in darker, more saturated shades so status text stays legible on
+ * white. */
 :root {
   --bg: #17181c;
   --bg-raised: #1f2126;
+  --bg-hover: #2a2d34;
   --border: #2f323a;
   --text: #e6e6e9;
   --text-dim: #9497a1;
   --accent: #6c8cff;
+  --success: #7ee787;
+  --error: #f28b82;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg: #ffffff;
+    --bg-raised: #f4f5f7;
+    --bg-hover: #e9ebef;
+    --border: #dde0e5;
+    --text: #1c1d21;
+    --text-dim: #6b6e76;
+    --accent: #3b5bdb;
+    --success: #1e7d32;
+    --error: #c0392b;
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-raised: #f4f5f7;
+  --bg-hover: #e9ebef;
+  --border: #dde0e5;
+  --text: #1c1d21;
+  --text-dim: #6b6e76;
+  --accent: #3b5bdb;
+  --success: #1e7d32;
+  --error: #c0392b;
 }
 
 * {
@@ -87,6 +124,29 @@ body {
   margin: 0;
 }
 
+.theme-toggle {
+  display: flex;
+  gap: 6px;
+}
+.theme-toggle-btn {
+  flex: 1;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.theme-toggle-btn:hover {
+  background: var(--bg-hover);
+}
+.theme-toggle-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
 .save-btn {
   background: var(--accent);
   border: none;
@@ -106,10 +166,10 @@ body {
   color: var(--text-dim);
 }
 .status.success {
-  color: #7ee787;
+  color: var(--success);
 }
 .status.error {
-  color: #f28b82;
+  color: var(--error);
 }
 
 .options h2 {

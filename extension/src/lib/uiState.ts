@@ -24,6 +24,10 @@ export interface UiState {
    * default — saving a tab is meant to be non-destructive unless you
    * explicitly opt into this. */
   closeTabOnSave: boolean;
+  /** "auto" follows the OS-level prefers-color-scheme; "light"/"dark"
+   * override it explicitly. See lib/theme.ts's applyTheme(), which every
+   * page (newtab, popup, options) calls on load. */
+  theme: "light" | "dark" | "auto";
 }
 
 const DEFAULTS: UiState = {
@@ -32,6 +36,7 @@ const DEFAULTS: UiState = {
   leftCollapsed: false,
   rightCollapsed: false,
   closeTabOnSave: false,
+  theme: "auto",
 };
 
 export async function getUiState(): Promise<UiState> {

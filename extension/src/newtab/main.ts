@@ -1,6 +1,7 @@
 import { type State, loadState, saveState } from "../lib/storage";
 import { pullAndMerge, pushAll, onSyncStatusChange } from "../lib/sync";
 import { getUiState, setUiState } from "../lib/uiState";
+import { applyTheme } from "../lib/theme";
 import type { AppContext } from "./context";
 import { buildRail } from "./rail";
 import { buildToolbar } from "./toolbar";
@@ -20,9 +21,12 @@ void pushAll(state);
 
 const app = document.getElementById("app")!;
 
+const uiState = await getUiState();
+applyTheme(uiState.theme);
+
 const ctx: AppContext = {
   state,
-  uiState: await getUiState(),
+  uiState,
   activeWorkspaceId: state.workspaces[0]?.id ?? "",
   searchQuery: "",
   showTrash: false,

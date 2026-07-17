@@ -10,6 +10,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Unit tests for `lib/uiState.ts`, `lib/config.ts`, `lib/actions.ts`, and `lib/favicon.ts` (previously untested), plus new `lib/url.ts`, `lib/time.ts`, and `lib/backupFile.ts` modules extracted from DOM-heavy builder files (`newtab/folders.ts`, `newtab/toolbar.ts`, `options/main.ts`) so their pure logic is testable in isolation — no behavior change.
 - A small Playwright end-to-end smoke suite (`extension/e2e/`) that loads the real built extension into a real Chromium instance and drives it through the UI — folder/link creation and reload-persistence, and entry multi-select's action bar and delete flow — now running as its own CI job (`npm run test:e2e --workspace=extension`, under `xvfb` since loading an MV3 extension needs headed Chromium).
+- Light/dark/auto theme toggle on the options page, applied consistently across newtab, popup, and options. "Auto" (the default) follows the OS-level `prefers-color-scheme`; "Light"/"Dark" override it explicitly. The choice is device-local (not synced), same as other UI preferences.
 
 ## [0.2.0] - 2026-07-16
 

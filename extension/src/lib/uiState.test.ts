@@ -27,6 +27,7 @@ describe("getUiState", () => {
       leftCollapsed: false,
       rightCollapsed: false,
       closeTabOnSave: false,
+      theme: "auto",
     });
   });
 
@@ -55,6 +56,7 @@ describe("setUiState / getUiState round-trip", () => {
       leftCollapsed: true,
       rightCollapsed: true,
       closeTabOnSave: true,
+      theme: "dark",
     };
     await setUiState(custom);
     await expect(getUiState()).resolves.toEqual(custom);

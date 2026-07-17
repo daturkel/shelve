@@ -2,9 +2,13 @@ import type { Folder } from "@shelve/shared";
 import { type State, loadState, saveState, createEntry } from "../lib/storage";
 import { pushResource } from "../lib/sync";
 import { createFolderInteractive } from "../lib/actions";
+import { getUiState } from "../lib/uiState";
+import { applyTheme } from "../lib/theme";
 
 type SaveMode = "current" | "all";
 type View = "menu" | { mode: SaveMode };
+
+applyTheme((await getUiState()).theme);
 
 const app = document.getElementById("app")!;
 let view: View = "menu";

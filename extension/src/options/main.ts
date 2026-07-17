@@ -1,15 +1,17 @@
 import { getConfig, setConfig } from "../lib/config";
 import { fetchRemoteState, fetchWorkerHealth, isWorkerSchemaCompatible, mergeState, pushAll } from "../lib/sync";
-import { getUiState, setUiState } from "../lib/uiState";
+import { getUiState, setUiState, type UiState } from "../lib/uiState";
 import { loadState, saveState } from "../lib/storage";
 import { importToby, exportToby, isTobyExport } from "../lib/tobyImport";
 import { downloadJson, readFileAsJson, isRemoteState } from "../lib/backupFile";
+import { applyTheme } from "../lib/theme";
 
 const app = document.getElementById("app")!;
 
 async function render() {
   const config = await getConfig();
   const uiState = await getUiState();
+  applyTheme(uiState.theme);
 
   app.innerHTML = "";
 
@@ -86,6 +88,39 @@ async function render() {
   }
 
   if (config) void refreshWorkerStatus();
+
+  const themeField = document.createElement("div");
+  themeField.className = "field";
+  const themeLabel = document.createElement("label");
+  themeLabel.textContent = "Theme";
+  themeField.appendChild(themeLabel);
+
+  const themeToggle = document.createElement("div");
+  themeToggle.className = "theme-toggle";
+  const themeOptions: [UiState["theme"], string][] = [
+    ["light", "Light"],
+    ["dark", "Dark"],
+    ["auto", "Auto"],
+  ];
+  for (const [value, label] of themeOptions) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "theme-toggle-btn" + (uiState.theme === value ? " active" : "");
+    btn.textContent = label;
+    // Applies immediately (rather than waiting for the Save button, which
+    // only persists Worker URL/token) and persists to uiState right away,
+    // same as the checkboxes below — re-renders so the active-button
+    // highlight moves without needing a page reload.
+    btn.onclick = async () => {
+      uiState.theme = value;
+      await setUiState(uiState);
+      applyTheme(uiState.theme);
+      void render();
+    };
+    themeToggle.appendChild(btn);
+  }
+  themeField.appendChild(themeToggle);
+  wrap.appendChild(themeField);
 
   const newtabField = document.createElement("div");
   newtabField.className = "field field-checkbox";
