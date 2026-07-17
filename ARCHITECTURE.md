@@ -30,7 +30,7 @@ There's no accounts system, no multi-tenancy, and no Cloudflare-hosted shared se
 ## Data model
 
 Hierarchy: **workspace → folder → entry**.
-Modeled loosely after Toby (its "collections" map to our folders), with two additions Toby doesn't have: an explicit workspace level above folders, and note-only entries.
+Modeled loosely after Toby (its "collections" map to our folders, and its "spaces" to our workspaces), with one addition Toby doesn't have: note-only entries.
 
 ```sql
 CREATE TABLE workspaces (
