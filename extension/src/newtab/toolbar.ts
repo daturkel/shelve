@@ -1,19 +1,9 @@
 import { createFolderInteractive } from "../lib/actions";
 import { getSyncStatus } from "../lib/sync";
+import { formatRelativeTime } from "../lib/time";
 import type { AppContext } from "./context";
 
 // ---------- Toolbar: search, new folder, panel toggles ----------
-
-function formatRelativeTime(ts: number): string {
-  const seconds = Math.round((Date.now() - ts) / 1000);
-  if (seconds < 10) return "just now";
-  if (seconds < 60) return `${seconds}s ago`;
-  const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
-}
 
 export function buildToolbar(ctx: AppContext): HTMLElement {
   const toolbar = document.createElement("div");

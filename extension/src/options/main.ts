@@ -1,39 +1,9 @@
 import { getConfig, setConfig } from "../lib/config";
-import {
-  fetchRemoteState,
-  fetchWorkerHealth,
-  isWorkerSchemaCompatible,
-  mergeState,
-  pushAll,
-  type RemoteState,
-} from "../lib/sync";
+import { fetchRemoteState, fetchWorkerHealth, isWorkerSchemaCompatible, mergeState, pushAll } from "../lib/sync";
 import { getUiState, setUiState } from "../lib/uiState";
 import { loadState, saveState } from "../lib/storage";
 import { importToby, exportToby, isTobyExport } from "../lib/tobyImport";
-
-function downloadJson(filename: string, data: unknown): void {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-async function readFileAsJson(file: File): Promise<unknown> {
-  return JSON.parse(await file.text());
-}
-
-function isRemoteState(value: unknown): value is RemoteState {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    Array.isArray((value as { workspaces?: unknown }).workspaces) &&
-    Array.isArray((value as { folders?: unknown }).folders) &&
-    Array.isArray((value as { entries?: unknown }).entries)
-  );
-}
+import { downloadJson, readFileAsJson, isRemoteState } from "../lib/backupFile";
 
 const app = document.getElementById("app")!;
 

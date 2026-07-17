@@ -13,6 +13,7 @@ import { showPrompt, showConfirm } from "../lib/modal";
 import { fetchLinkMetadata } from "../lib/linkMetadata";
 import { buildFaviconEl } from "../lib/favicon";
 import { createFolderInteractive } from "../lib/actions";
+import { normalizeUrl } from "../lib/url";
 import { showFolderPickerModal } from "./folderPicker";
 import type { AppContext } from "./context";
 
@@ -494,10 +495,6 @@ function buildAddLinkTile(ctx: AppContext, folder: Folder): HTMLElement {
     void pushResource("entries", entry);
   };
   return el;
-}
-
-function normalizeUrl(input: string): string {
-  return /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(input) ? input : `https://${input}`;
 }
 
 function buildEntryEl(ctx: AppContext, entry: Entry): HTMLElement {
