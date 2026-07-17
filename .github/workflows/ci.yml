@@ -19,3 +19,28 @@ jobs:
       - run: npm run test
       - run: npm run lint
       - run: npm run format:check
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm install
+      - run: npm run build --workspace=extension
+      - run: npx playwright install --with-deps chromium
+      - run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: Run e2e smoke suite
+        # Loading an unpacked MV3 extension needs headed Chromium — even
+        # the "new" headless mode doesn't reliably register the extension's
+        # service worker (see extension/e2e/fixtures.ts) — so this runs
+        # under a virtual display rather than true headless.
+        run: xvfb-run -a npm run test:e2e --workspace=extension
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: extension/playwright-report/
+          retention-days: 7

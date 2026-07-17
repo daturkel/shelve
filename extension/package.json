@@ -7,6 +7,7 @@
     "build": "vite build && cp manifest.json dist/manifest.json",
     "watch": "vite build --watch",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "screenshot": "node scripts/generate-readme-screenshot.mjs"
   },
@@ -14,6 +15,7 @@
     "@shelve/shared": "*"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/chrome": "^0.0.324",
     "happy-dom": "^20.10.6",
     "playwright": "^1.61.1",

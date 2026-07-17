@@ -147,9 +147,9 @@ Native HTML5 drag-and-drop throughout (folders reordering within a workspace, en
 - **Extension:** Manifest V3, TypeScript + Vite, no UI framework (plain DOM manipulation) — kept deliberately lean.
 - **Backend:** Cloudflare Workers + D1 (SQLite), TypeScript, deployed via Wrangler CLI.
 - **Shared types:** `Workspace`/`Folder`/`Entry`/`ResourceKind` defined once in `shared/` and imported by both the worker and the extension, so the API contract can't silently drift between client and server.
-- **Testing:** Vitest everywhere.
+- **Testing:** Vitest everywhere for unit/integration tests.
   The Worker's tests run against a real D1 instance via `@cloudflare/vitest-pool-workers`.
-  The extension has a Playwright-driven skill (`extension/.claude/skills/run-extension/`) for loading the built, unpacked extension into a real Chromium instance and driving its UI programmatically.
+  The extension additionally has a small Playwright e2e smoke suite (`extension/e2e/`, run via `npm run test:e2e --workspace=extension`, wired into CI as its own job) that loads the built, unpacked extension into a real Chromium instance and drives its UI — the same load-unpacked technique as the manual, agent-driven REPL skill (`extension/.claude/skills/run-extension/`), just wrapped in `@playwright/test` with assertions instead of a REPL loop. Both need headed Chromium (loading an MV3 extension's service worker doesn't reliably register under headless), so CI runs the e2e job under `xvfb`.
 
 ## Repo layout
 
