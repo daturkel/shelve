@@ -1,4 +1,4 @@
-import { getConfig, setConfig } from "@shelve/core/lib/config";
+import { getConfig, setConfig, isValidWorkerUrl } from "@shelve/core/lib/config";
 import {
   fetchRemoteState,
   fetchWorkerHealth,
@@ -154,6 +154,11 @@ export async function buildSettings(uiState: UiState, onClose: () => void): Prom
     if (!workerUrl || !apiToken) {
       status.textContent = "Both fields are required.";
       status.className = "status";
+      return;
+    }
+    if (!isValidWorkerUrl(workerUrl)) {
+      status.textContent = "Worker URL must start with http:// or https://.";
+      status.className = "status error";
       return;
     }
     try {

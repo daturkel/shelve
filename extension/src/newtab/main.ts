@@ -15,10 +15,20 @@ import { chromeTabActions } from "../lib/chromeTabActions";
 setStore(chromeStore);
 
 let state: State = await loadState();
-const merged = await pullAndMerge(state);
-if (merged) {
-  state = merged;
-  await saveState(state);
+// The rest of startup (render() further down) must run even if the
+// initial sync pull fails outright — an uncaught exception here is a
+// top-level await rejection, which aborts the entire module and leaves
+// #app permanently empty rather than falling back to local-only state
+// (e.g. a misconfigured Worker URL causing an unexpected response shape,
+// or any other unanticipated failure mode).
+try {
+  const merged = await pullAndMerge(state);
+  if (merged) {
+    state = merged;
+    await saveState(state);
+  }
+} catch (e) {
+  console.error("shelve: initial sync pull failed, continuing with local state", e);
 }
 // Catches records created locally but never successfully synced — most
 // notably the default "Home" workspace from first run.
