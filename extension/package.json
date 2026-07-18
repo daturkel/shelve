@@ -12,6 +12,7 @@
     "screenshot": "node scripts/generate-readme-screenshot.mjs"
   },
   "dependencies": {
+    "@shelve/core": "*",
     "@shelve/shared": "*"
   },
   "devDependencies": {

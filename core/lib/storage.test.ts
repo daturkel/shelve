@@ -16,29 +16,15 @@ import {
   updateEntryNote,
   updateEntryTitle,
 } from "./storage";
-
-// Minimal in-memory mock of chrome.storage.local, just enough for
-// loadState()'s get/set round-trip.
-function installChromeStorageMock() {
-  const store = new Map<string, unknown>();
-  (globalThis as Record<string, unknown>).chrome = {
-    storage: {
-      local: {
-        get: async (key: string) => ({ [key]: store.get(key) }),
-        set: async (items: Record<string, unknown>) => {
-          for (const [k, v] of Object.entries(items)) store.set(k, v);
-        },
-      },
-    },
-  };
-}
+import { setStore } from "./store";
+import { createMemoryStore } from "./testStore";
 
 function emptyState(): State {
   return { workspaces: [], folders: [], entries: [] };
 }
 
 describe("loadState", () => {
-  beforeEach(() => installChromeStorageMock());
+  beforeEach(() => setStore(createMemoryStore()));
 
   it("auto-creates a single 'Home' workspace on first run", async () => {
     const state = await loadState();
@@ -60,9 +46,9 @@ describe("loadState", () => {
     // each independently auto-creates its own "Home" workspace on first
     // run. If the id were random (crypto.randomUUID()), these would sync
     // as two distinct workspaces instead of merging into one.
-    installChromeStorageMock();
+    setStore(createMemoryStore());
     const deviceA = await loadState();
-    installChromeStorageMock();
+    setStore(createMemoryStore());
     const deviceB = await loadState();
     expect(deviceA.workspaces[0].id).toBe(deviceB.workspaces[0].id);
   });

@@ -1,4 +1,5 @@
 import type { Workspace, Folder, Entry } from "@shelve/shared";
+import { getStore } from "./store";
 
 export interface State {
   workspaces: Workspace[];
@@ -16,8 +17,7 @@ const STORAGE_KEY = "shelve_state";
 const DEFAULT_WORKSPACE_ID = "default";
 
 export async function loadState(): Promise<State> {
-  const result = await chrome.storage.local.get(STORAGE_KEY);
-  const state = result[STORAGE_KEY] as State | undefined;
+  const state = await getStore().get<State>(STORAGE_KEY);
   if (state) return state;
   return initState();
 }
@@ -38,7 +38,7 @@ async function initState(): Promise<State> {
 }
 
 export async function saveState(state: State): Promise<void> {
-  await chrome.storage.local.set({ [STORAGE_KEY]: state });
+  await getStore().set(STORAGE_KEY, state);
 }
 
 export function createWorkspace(state: State, name: string): Workspace {

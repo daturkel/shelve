@@ -1,13 +1,16 @@
 import type { Folder } from "@shelve/shared";
-import { type State, loadState, saveState, createEntry } from "../lib/storage";
-import { pushResource } from "../lib/sync";
-import { createFolderInteractive } from "../lib/actions";
-import { getUiState } from "../lib/uiState";
-import { applyTheme } from "../lib/theme";
+import { type State, loadState, saveState, createEntry } from "@shelve/core/lib/storage";
+import { pushResource } from "@shelve/core/lib/sync";
+import { createFolderInteractive } from "@shelve/core/lib/actions";
+import { getUiState } from "@shelve/core/lib/uiState";
+import { applyTheme } from "@shelve/core/lib/theme";
+import { setStore } from "@shelve/core/lib/store";
+import { chromeStore } from "../lib/chromeStore";
 
 type SaveMode = "current" | "all";
 type View = "menu" | { mode: SaveMode };
 
+setStore(chromeStore);
 applyTheme((await getUiState()).theme);
 
 const app = document.getElementById("app")!;

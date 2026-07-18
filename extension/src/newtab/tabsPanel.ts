@@ -1,10 +1,10 @@
 import type { Folder } from "@shelve/shared";
-import { createEntry } from "../lib/storage";
-import { pushResource } from "../lib/sync";
-import { createFolderInteractive } from "../lib/actions";
-import { buildFaviconEl } from "../lib/favicon";
-import { showFolderPickerModal } from "./folderPicker";
-import type { AppContext } from "./context";
+import { createEntry } from "@shelve/core/lib/storage";
+import { pushResource } from "@shelve/core/lib/sync";
+import { createFolderInteractive } from "@shelve/core/lib/actions";
+import { buildFaviconEl } from "@shelve/core/lib/favicon";
+import { showFolderPickerModal } from "@shelve/core/ui/folderPicker";
+import type { AppContext } from "@shelve/core/ui/context";
 
 const TAB_MIME = "application/x-shelve-tab";
 const REORDER_TAB_MIME = "application/x-shelve-tab-reorder";
@@ -139,7 +139,7 @@ function buildTabItem(ctx: AppContext, tab: chrome.tabs.Tab, allTabs: chrome.tab
   close.title = "Close tab";
   close.onclick = (ev) => {
     ev.stopPropagation();
-    if (tab.id !== undefined) void chrome.tabs.remove(tab.id);
+    if (tab.id !== undefined) ctx.tabActions.close([tab.id]);
   };
   el.appendChild(close);
 
@@ -301,7 +301,9 @@ function buildSelectionBar(ctx: AppContext, tabs: chrome.tabs.Tab[]): HTMLElemen
   return bar;
 }
 
-async function saveSelectedTabsTo(ctx: AppContext, folder: Folder, tabs: chrome.tabs.Tab[]): Promise<void> {
+// Exported for testability (closeTabOnSave's tab-closing side effect —
+// see tabsPanel.test.ts) — not used outside this file otherwise.
+export async function saveSelectedTabsTo(ctx: AppContext, folder: Folder, tabs: chrome.tabs.Tab[]): Promise<void> {
   const selected = tabs.filter((t) => t.id !== undefined && ctx.selectedTabIds.has(t.id));
 
   const created = selected.map((t) =>
@@ -316,7 +318,7 @@ async function saveSelectedTabsTo(ctx: AppContext, folder: Folder, tabs: chrome.
 
   if (ctx.uiState.closeTabOnSave) {
     const ids = selected.map((t) => t.id).filter((id): id is number => id !== undefined);
-    if (ids.length > 0) void chrome.tabs.remove(ids);
+    if (ids.length > 0) ctx.tabActions.close(ids);
   }
 
   ctx.selectedTabIds.clear();

@@ -72,7 +72,7 @@ export function buildToolbar(ctx: AppContext): HTMLElement {
   settingsBtn.className = "icon-btn";
   settingsBtn.textContent = "⚙";
   settingsBtn.title = "Settings";
-  settingsBtn.onclick = () => chrome.runtime.openOptionsPage();
+  settingsBtn.onclick = () => ctx.openSettings();
   toolbar.appendChild(settingsBtn);
 
   const tabsToggle = document.createElement("button");

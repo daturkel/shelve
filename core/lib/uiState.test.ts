@@ -1,23 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { getUiState, setUiState, type UiState } from "./uiState";
-
-// Same minimal in-memory chrome.storage.local mock as storage.test.ts.
-function installChromeStorageMock() {
-  const store = new Map<string, unknown>();
-  (globalThis as Record<string, unknown>).chrome = {
-    storage: {
-      local: {
-        get: async (key: string) => ({ [key]: store.get(key) }),
-        set: async (items: Record<string, unknown>) => {
-          for (const [k, v] of Object.entries(items)) store.set(k, v);
-        },
-      },
-    },
-  };
-}
+import { setStore } from "./store";
+import { createMemoryStore } from "./testStore";
 
 describe("getUiState", () => {
-  beforeEach(() => installChromeStorageMock());
+  beforeEach(() => setStore(createMemoryStore()));
 
   it("returns defaults on first run, with nothing stored yet", async () => {
     const state = await getUiState();
@@ -32,14 +19,9 @@ describe("getUiState", () => {
   });
 
   it("merges a partial stored value over the defaults", async () => {
-    (globalThis as Record<string, unknown>).chrome = {
-      storage: {
-        local: {
-          get: async () => ({ shelve_ui_state: { showOnNewTab: false } }),
-          set: async () => {},
-        },
-      },
-    };
+    const store = createMemoryStore();
+    await store.set("shelve_ui_state", { showOnNewTab: false });
+    setStore(store);
     const state = await getUiState();
     expect(state.showOnNewTab).toBe(false);
     expect(state.leftCollapsed).toBe(false);
@@ -47,7 +29,7 @@ describe("getUiState", () => {
 });
 
 describe("setUiState / getUiState round-trip", () => {
-  beforeEach(() => installChromeStorageMock());
+  beforeEach(() => setStore(createMemoryStore()));
 
   it("persists a full UiState and reads it back unchanged", async () => {
     const custom: UiState = {

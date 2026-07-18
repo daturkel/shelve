@@ -45,7 +45,7 @@ async function createEntriesFromDraggedTabs(ctx: AppContext, folder: Folder, tab
   for (const entry of created) void pushResource("entries", entry);
 
   if (ctx.uiState.closeTabOnSave) {
-    void chrome.tabs.remove(tabs.map((tab) => tab.id));
+    ctx.tabActions.close(tabs.map((tab) => tab.id));
   }
 }
 
@@ -146,7 +146,7 @@ function buildEntrySelectionBar(ctx: AppContext): HTMLElement {
   openBtn.textContent = "Open tabs";
   openBtn.onclick = () => {
     const selected = ctx.state.entries.filter((e) => ctx.selectedEntryIds.has(e.id) && e.url);
-    for (const e of selected) void chrome.tabs.create({ url: e.url!, active: false });
+    for (const e of selected) ctx.tabActions.open(e.url!, { active: false });
     ctx.selectedEntryIds.clear();
     ctx.render();
   };
@@ -572,18 +572,18 @@ function buildEntryEl(ctx: AppContext, entry: Entry): HTMLElement {
   };
   el.appendChild(del);
 
-  // chrome.tabs.create rather than window.open: the latter has no way to
-  // open a tab without also focusing it, so Cmd/Ctrl-click (and
-  // middle-click, which never fires a plain "click" — only "auxclick",
-  // per spec) couldn't otherwise open in the background the way a normal
-  // link does.
+  // tabActions.open rather than window.open: the extension's chrome.tabs
+  // implementation has no way to open a tab without also focusing it
+  // otherwise, so Cmd/Ctrl-click (and middle-click, which never fires a
+  // plain "click" — only "auxclick", per spec) couldn't otherwise open
+  // in the background the way a normal link does.
   el.onclick = (ev) => {
     if (ev.target === del || ev.target === edit || ev.target === checkbox) return;
-    if (entry.url) void chrome.tabs.create({ url: entry.url, active: !(ev.metaKey || ev.ctrlKey) });
+    if (entry.url) ctx.tabActions.open(entry.url, { active: !(ev.metaKey || ev.ctrlKey) });
   };
   el.onauxclick = (ev) => {
     if (ev.button !== 1 || ev.target === del || ev.target === edit || ev.target === checkbox) return;
-    if (entry.url) void chrome.tabs.create({ url: entry.url, active: false });
+    if (entry.url) ctx.tabActions.open(entry.url, { active: false });
   };
 
   // A multi-select drag (this entry is part of a selection of more than

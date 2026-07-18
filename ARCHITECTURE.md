@@ -138,17 +138,31 @@ Manifest V3, four surfaces:
   There is deliberately no static `chrome_url_overrides.newtab` in the manifest: Chrome has no supported way to dynamically toggle a manifest-level override, and once declared there's no way back to Chrome's real default new-tab page short of the user disabling the extension entirely.
   Instead, the background worker listens for `chrome.tabs.onCreated` and redirects to `newtab/index.html` only when a device-local preference (default: on) says to — off means Chrome's real default page shows, untouched.
 
-Shared code lives in `extension/src/lib/`: local storage/CRUD (`storage.ts`), sync (`sync.ts`), the in-window modal that replaces native `window.prompt()`/`confirm()` (`modal.ts`, used by both `newtab` and `popup`), Toby import/export (`tobyImport.ts`), manually-added-link metadata fetching (`linkMetadata.ts`), and device-local UI/behavior preferences (`uiState.ts` — folder collapse state, the new-tab toggle, the light/dark/auto theme; deliberately _not_ part of the synced data model, since these are per-device presentation choices, not data).
+Most shared code lives in the `core/` workspace, not `extension/` — see "The `core` package" below. `extension/src/lib/` itself now only holds the two thin adapters that plug `core`'s platform-agnostic code into real `chrome.*` APIs (`chromeStore.ts`, `chromeTabActions.ts`).
 
 Native HTML5 drag-and-drop throughout (folders reordering within a workspace, entries moving between folders, tabs dragging in from the open tabs panel) — no drag-and-drop library dependency.
+
+## The `core` package
+
+`core/` holds everything that doesn't actually need `chrome.*` — local storage/CRUD (`lib/storage.ts`), sync (`lib/sync.ts`), the in-window modal that replaces native `window.prompt()`/`confirm()` (`lib/modal.ts`), Toby import/export (`lib/tobyImport.ts`), manually-added-link metadata fetching (`lib/linkMetadata.ts`), device-local UI/behavior preferences (`lib/uiState.ts` — folder collapse state, the new-tab toggle, the light/dark/auto theme; deliberately _not_ part of the synced data model, since these are per-device presentation choices, not data), and almost all of the folder-browser's DOM-builder code (`ui/folders.ts`, `ui/toolbar.ts`, `ui/rail.ts`, `ui/trash.ts`, `ui/folderPicker.ts`, `ui/context.ts`).
+
+This split exists because Shelve is expected to eventually get a lightweight web/PWA surface alongside the extension (mobile-friendly folder browsing), and auditing the code showed the actual `chrome.*` coupling was narrow — a handful of `chrome.storage.local` calls and `chrome.tabs.create`/`remove` calls — while everything else was already platform-agnostic. Two small seams cover that handful:
+
+- **`Store`** (`core/lib/store.ts`) — a `get`/`set` interface that `storage.ts`/`uiState.ts`/`config.ts` read/write through instead of calling `chrome.storage.local` directly. A module-level singleton set once per page load (`setStore()`), mirroring how `applyTheme()` already runs once per load — not threaded as a parameter, since only those 6 functions ever touch persistence (everything else, e.g. `createEntry`/`deleteEntry`, mutates an already-loaded `State` object in memory). `extension/src/lib/chromeStore.ts` is the extension's implementation, backed by `chrome.storage.local`; a future web build would supply a `localStorage`/IndexedDB-backed one instead.
+- **`TabActions`** (`core/ui/context.ts`, part of `AppContext`) — `open(url, opts)`/`close(tabIds)`, covering the handful of `chrome.tabs.create`/`chrome.tabs.remove` calls inside the moved UI code. `extension/src/lib/chromeTabActions.ts` implements it via `chrome.tabs`; a web build would implement `open` via `window.open` and likely no-op `close` (a web page has no way to close an arbitrary tab by id — that's real extension-only capability, so a web surface would be a reduced experience here, not full parity). `AppContext.openSettings` is a similar one-off seam for `chrome.runtime.openOptionsPage()`.
+
+`core/tsconfig.json` deliberately has no `"types": ["chrome"]` — any accidental direct `chrome.*` reference left in a moved file fails `tsc --noEmit` immediately, a compiler-enforced boundary rather than a code-review convention.
+
+What's still extension-only and stays in `extension/`: `newtab/tabsPanel.ts` (the live open-tabs panel — `chrome.tabs`/`chrome.windows` top to bottom, no web equivalent is possible), all of `popup/` (one-click save-current-tab needs `chrome.tabs`), and `background/` (the new-tab takeover is `chrome.tabs.onCreated`-based).
 
 ## Tech stack
 
 - **Extension:** Manifest V3, TypeScript + Vite, no UI framework (plain DOM manipulation) — kept deliberately lean.
 - **Backend:** Cloudflare Workers + D1 (SQLite), TypeScript, deployed via Wrangler CLI.
-- **Shared types:** `Workspace`/`Folder`/`Entry`/`ResourceKind` defined once in `shared/` and imported by both the worker and the extension, so the API contract can't silently drift between client and server.
+- **Shared types:** `Workspace`/`Folder`/`Entry`/`ResourceKind` defined once in `shared/` and imported by the worker, `core`, and the extension, so the API contract can't silently drift between client and server.
 - **Testing:** Vitest everywhere for unit/integration tests.
   The Worker's tests run against a real D1 instance via `@cloudflare/vitest-pool-workers`.
+  Most unit tests live in `core/` now, alongside the code they test, and run there via `npm run test --workspace=core`.
   The extension additionally has a small Playwright e2e smoke suite (`extension/e2e/`, run via `npm run test:e2e --workspace=extension`, wired into CI as its own job) that loads the built, unpacked extension into a real Chromium instance and drives its UI — the same load-unpacked technique as the manual, agent-driven REPL skill (`extension/.claude/skills/run-extension/`), just wrapped in `@playwright/test` with assertions instead of a REPL loop. Both need headed Chromium (loading an MV3 extension's service worker doesn't reliably register under headless), so CI runs the e2e job under `xvfb`.
 
 ## Repo layout
@@ -162,13 +176,17 @@ shelve/
     src/index.test.ts
     migrations/               # numbered D1 schema migrations (wrangler d1 migrations apply), fresh installs and upgrades alike
     wrangler.toml.example    # committed template — real wrangler.toml is gitignored
+  core/                      # platform-agnostic logic + UI, shared by extension (and eventually a web build)
+    lib/                     # storage, sync, modal, Toby import, link metadata, ui state, the Store abstraction
+    ui/                      # folder-browser DOM builders (folders, toolbar, rail, trash, folderPicker, context/AppContext)
   extension/
     manifest.json
     src/background/          # optional new-tab takeover
-    src/lib/                 # storage, sync, modal, Toby import, link metadata, ui state
-    src/newtab/               # main folder-browser UI
+    src/lib/                 # chromeStore.ts / chromeTabActions.ts — the only extension-specific glue
+    src/newtab/               # main.ts (wiring) + tabsPanel.ts (chrome.tabs-only, extension-exclusive)
     src/options/               # config + Data (backup/Toby import-export)
     src/popup/                  # toolbar popup
+    e2e/                        # Playwright smoke suite against the real built extension
   README.md
   ARCHITECTURE.md             # this file
   LICENSE

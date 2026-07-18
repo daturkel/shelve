@@ -1,10 +1,20 @@
-import { getConfig, setConfig } from "../lib/config";
-import { fetchRemoteState, fetchWorkerHealth, isWorkerSchemaCompatible, mergeState, pushAll } from "../lib/sync";
-import { getUiState, setUiState, type UiState } from "../lib/uiState";
-import { loadState, saveState } from "../lib/storage";
-import { importToby, exportToby, isTobyExport } from "../lib/tobyImport";
-import { downloadJson, readFileAsJson, isRemoteState } from "../lib/backupFile";
-import { applyTheme } from "../lib/theme";
+import { getConfig, setConfig } from "@shelve/core/lib/config";
+import {
+  fetchRemoteState,
+  fetchWorkerHealth,
+  isWorkerSchemaCompatible,
+  mergeState,
+  pushAll,
+} from "@shelve/core/lib/sync";
+import { getUiState, setUiState, type UiState } from "@shelve/core/lib/uiState";
+import { loadState, saveState } from "@shelve/core/lib/storage";
+import { importToby, exportToby, isTobyExport } from "@shelve/core/lib/tobyImport";
+import { downloadJson, readFileAsJson, isRemoteState } from "@shelve/core/lib/backupFile";
+import { applyTheme } from "@shelve/core/lib/theme";
+import { setStore } from "@shelve/core/lib/store";
+import { chromeStore } from "../lib/chromeStore";
+
+setStore(chromeStore);
 
 const app = document.getElementById("app")!;
 

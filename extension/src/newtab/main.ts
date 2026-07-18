@@ -1,13 +1,18 @@
-import { type State, loadState, saveState } from "../lib/storage";
-import { pullAndMerge, pushAll, onSyncStatusChange } from "../lib/sync";
-import { getUiState, setUiState } from "../lib/uiState";
-import { applyTheme } from "../lib/theme";
-import type { AppContext } from "./context";
-import { buildRail } from "./rail";
-import { buildToolbar } from "./toolbar";
-import { buildFolders } from "./folders";
+import { type State, loadState, saveState } from "@shelve/core/lib/storage";
+import { pullAndMerge, pushAll, onSyncStatusChange } from "@shelve/core/lib/sync";
+import { getUiState, setUiState } from "@shelve/core/lib/uiState";
+import { applyTheme } from "@shelve/core/lib/theme";
+import { setStore } from "@shelve/core/lib/store";
+import type { AppContext } from "@shelve/core/ui/context";
+import { buildRail } from "@shelve/core/ui/rail";
+import { buildToolbar } from "@shelve/core/ui/toolbar";
+import { buildFolders } from "@shelve/core/ui/folders";
+import { buildTrash } from "@shelve/core/ui/trash";
 import { buildTabsPanel, watchTabs } from "./tabsPanel";
-import { buildTrash } from "./trash";
+import { chromeStore } from "../lib/chromeStore";
+import { chromeTabActions } from "../lib/chromeTabActions";
+
+setStore(chromeStore);
 
 let state: State = await loadState();
 const merged = await pullAndMerge(state);
@@ -35,6 +40,8 @@ const ctx: AppContext = {
   render,
   rerender,
   persistUiState,
+  tabActions: chromeTabActions,
+  openSettings: () => chrome.runtime.openOptionsPage(),
 };
 
 // One-time: registers chrome.tabs.on* listeners for the live-updating
