@@ -1,4 +1,8 @@
-import { getUiState } from "../lib/uiState";
+import { getUiState } from "@shelve/core/lib/uiState";
+import { setStore } from "@shelve/core/lib/store";
+import { chromeStore } from "../lib/chromeStore";
+
+setStore(chromeStore);
 
 const NEWTAB_URL = "chrome://newtab/";
 

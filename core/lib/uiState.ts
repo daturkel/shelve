@@ -4,6 +4,8 @@
 // schema — this is per-device presentation/preference state, not data
 // that should ever sync between devices.
 
+import { getStore } from "./store";
+
 const UI_STATE_KEY = "shelve_ui_state";
 
 export interface UiState {
@@ -40,11 +42,10 @@ const DEFAULTS: UiState = {
 };
 
 export async function getUiState(): Promise<UiState> {
-  const result = await chrome.storage.local.get(UI_STATE_KEY);
-  const stored = result[UI_STATE_KEY] as Partial<UiState> | undefined;
+  const stored = await getStore().get<Partial<UiState>>(UI_STATE_KEY);
   return { ...DEFAULTS, ...stored };
 }
 
 export async function setUiState(state: UiState): Promise<void> {
-  await chrome.storage.local.set({ [UI_STATE_KEY]: state });
+  await getStore().set(UI_STATE_KEY, state);
 }

@@ -1,0 +1,45 @@
+/* Shared color palette for every page (newtab, popup, options) — was
+ * triplicated per-stylesheet before this extraction. Dark is the
+ * default (no data-theme attribute, and no OS light preference). Light
+ * overrides apply either via the OS-level prefers-color-scheme media
+ * query (when the user hasn't explicitly chosen a theme — see
+ * lib/theme.ts) or explicitly via data-theme, which always wins over
+ * the media query. --success/--error are only used by options today
+ * but are harmless to have available everywhere. */
+:root {
+  --bg: #17181c;
+  --bg-raised: #1f2126;
+  --bg-hover: #2a2d34;
+  --border: #2f323a;
+  --text: #e6e6e9;
+  --text-dim: #9497a1;
+  --accent: #6c8cff;
+  --success: #7ee787;
+  --error: #f28b82;
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg: #ffffff;
+    --bg-raised: #f4f5f7;
+    --bg-hover: #e9ebef;
+    --border: #dde0e5;
+    --text: #1c1d21;
+    --text-dim: #6b6e76;
+    --accent: #3b5bdb;
+    --success: #1e7d32;
+    --error: #c0392b;
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-raised: #f4f5f7;
+  --bg-hover: #e9ebef;
+  --border: #dde0e5;
+  --text: #1c1d21;
+  --text-dim: #6b6e76;
+  --accent: #3b5bdb;
+  --success: #1e7d32;
+  --error: #c0392b;
+}

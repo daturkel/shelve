@@ -3,15 +3,18 @@ import { mergeArray, mergeState, fetchWorkerHealth, isWorkerSchemaCompatible } f
 import type { State } from "./storage";
 import { SCHEMA_VERSION, type Workspace } from "@shelve/shared";
 
-function installChromeConfigMock(config: { workerUrl: string; apiToken: string } | null) {
-  (globalThis as Record<string, unknown>).chrome = {
-    storage: {
-      local: {
-        get: async () => (config ? { shelve_config: config } : {}),
-        set: async () => {},
-      },
-    },
-  };
+// Dynamic imports (not static top-of-file ones) so this always targets
+// whichever ./store module instance is *currently* registered — the
+// "sync's compatibility gate" tests below call vi.resetModules() to get
+// a fresh sync.ts (clearing its once-per-module-instance compatibility
+// cache), which transitively gives ./store a fresh singleton too. A
+// static import's binding wouldn't follow that reset.
+async function installConfigMock(config: { workerUrl: string; apiToken: string } | null): Promise<void> {
+  const { setStore } = await import("./store");
+  const { createMemoryStore } = await import("./testStore");
+  const store = createMemoryStore();
+  if (config) await store.set("shelve_config", config);
+  setStore(store);
 }
 
 function ws(overrides: Partial<Workspace> & { id: string }): Workspace {
@@ -107,12 +110,12 @@ afterEach(() => {
 
 describe("fetchWorkerHealth", () => {
   it("returns null when sync isn't configured", async () => {
-    installChromeConfigMock(null);
+    await installConfigMock(null);
     expect(await fetchWorkerHealth()).toBeNull();
   });
 
   it("returns the parsed health payload on success", async () => {
-    installChromeConfigMock({ workerUrl: "https://worker.test", apiToken: "tok" });
+    await installConfigMock({ workerUrl: "https://worker.test", apiToken: "tok" });
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue({
@@ -124,7 +127,7 @@ describe("fetchWorkerHealth", () => {
   });
 
   it("returns null on a failed response", async () => {
-    installChromeConfigMock({ workerUrl: "https://worker.test", apiToken: "tok" });
+    await installConfigMock({ workerUrl: "https://worker.test", apiToken: "tok" });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) } as Response));
     expect(await fetchWorkerHealth()).toBeNull();
   });
@@ -142,9 +145,9 @@ describe("isWorkerSchemaCompatible", () => {
 });
 
 describe("sync's compatibility gate", () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.resetModules();
-    installChromeConfigMock({ workerUrl: "https://worker.test", apiToken: "tok" });
+    await installConfigMock({ workerUrl: "https://worker.test", apiToken: "tok" });
   });
 
   it("skips a write to a Worker whose schema is behind, without ever sending it", async () => {

@@ -1,10 +1,10 @@
 import type { Folder } from "@shelve/shared";
-import { createEntry } from "../lib/storage";
-import { pushResource } from "../lib/sync";
-import { createFolderInteractive } from "../lib/actions";
-import { buildFaviconEl } from "../lib/favicon";
-import { showFolderPickerModal } from "./folderPicker";
-import type { AppContext } from "./context";
+import { createEntry } from "@shelve/core/lib/storage";
+import { pushResource } from "@shelve/core/lib/sync";
+import { createFolderInteractive } from "@shelve/core/lib/actions";
+import { buildFaviconEl } from "@shelve/core/lib/favicon";
+import { showFolderPickerModal } from "@shelve/core/ui/folderPicker";
+import type { AppContext } from "@shelve/core/ui/context";
 
 const TAB_MIME = "application/x-shelve-tab";
 const REORDER_TAB_MIME = "application/x-shelve-tab-reorder";

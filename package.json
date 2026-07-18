@@ -5,6 +5,7 @@
   "workspaces": [
     "shared",
     "worker",
+    "core",
     "extension"
   ],
   "scripts": {
