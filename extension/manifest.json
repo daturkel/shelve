@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Shelve",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Save tabs into folders, synced across your devices via your own Cloudflare Worker + D1 backend.",
   "permissions": ["storage", "tabs"],
   "host_permissions": ["<all_urls>"],

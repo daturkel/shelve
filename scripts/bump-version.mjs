@@ -47,8 +47,10 @@ for (const relPath of [
   "package.json",
   "shared/package.json",
   "worker/package.json",
+  "core/package.json",
   "extension/package.json",
   "extension/manifest.json",
+  "web/package.json",
 ]) {
   bumpJsonVersion(relPath);
 }

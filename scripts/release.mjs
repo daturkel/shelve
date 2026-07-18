@@ -39,8 +39,10 @@ const versions = {
   "package.json": readVersion("package.json", jsonVersionPattern),
   "shared/package.json": readVersion("shared/package.json", jsonVersionPattern),
   "worker/package.json": readVersion("worker/package.json", jsonVersionPattern),
+  "core/package.json": readVersion("core/package.json", jsonVersionPattern),
   "extension/package.json": readVersion("extension/package.json", jsonVersionPattern),
   "extension/manifest.json": readVersion("extension/manifest.json", jsonVersionPattern),
+  "web/package.json": readVersion("web/package.json", jsonVersionPattern),
   "worker/src/version.ts": readVersion("worker/src/version.ts", workerVersionPattern),
 };
 
