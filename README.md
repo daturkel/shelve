@@ -93,23 +93,17 @@ Then in Chrome: `chrome://extensions` → enable **Developer mode** (top right) 
 
 #### Option B: Web app
 
-A responsive folder browser for any browser, desktop or mobile, served as static files from [Cloudflare Pages](https://pages.cloudflare.com/). No environment variables needed at build time — the Worker URL and API token are entered in the deployed app itself (its own gear-icon settings screen, same idea as the extension's options page).
-
-Two ways to deploy it, same build either way (`npm run build --workspace=web`, output in `web/dist`):
-
-**Dashboard, connected to your repo (auto-redeploys on every push):** in the Cloudflare dashboard, create a new Pages project connected to this repo (or your fork), with build command `npm run build --workspace=web` and build output directory `web/dist`.
-
-**Wrangler CLI, one-off or manual redeploys (uses the same Wrangler CLI as step 2):**
+A responsive folder browser for any browser, desktop or mobile, deployed as static files to [Cloudflare Pages](https://pages.cloudflare.com/) via the same Wrangler CLI as step 2. No environment variables needed at build time — the Worker URL and API token are entered in the deployed app itself (its own gear-icon settings screen, same idea as the extension's options page).
 
 ```bash
 cd web   # from the repo root
 npm run build
-npx wrangler pages deploy dist --project-name=shelve-web   # name it whatever you like
+npx wrangler pages deploy dist --project-name=shelve-web   # name it whatever you like; first run prompts to create the project
 ```
 
-First run prompts you to create the Pages project if it doesn't exist yet; re-run the same command whenever you want to push a new build (e.g. after upgrading — see "Upgrading" below).
+Open the printed Pages URL, go to Settings, and enter the same Worker URL/token from step 2.
 
-Either way, once deployed: open the Pages URL, go to Settings, and enter the same Worker URL/token from step 2.
+Re-run the same `wrangler pages deploy` command any time you want to push a new build — nothing auto-deploys on its own.
 
 The web app's data is local-first (stored in the browser's IndexedDB, same architecture as the extension's `chrome.storage.local`) and syncs through your Worker exactly like another device — see [KNOWN_GAPS.md](KNOWN_GAPS.md) for what's different from the extension (no drag-and-drop reordering yet, no offline/installable PWA support yet).
 
@@ -136,7 +130,7 @@ npm run build
 (Or download the new version's zip from [Releases](https://github.com/daturkel/shelve/releases) instead of building it yourself — same as initial setup.)
 Then reload the extension from `chrome://extensions` (the circular reload icon on Shelve's card, or **Remove** + **Load unpacked** again if you switched to a freshly-unzipped folder) — unpacked extensions don't auto-reload on file or folder changes, and there's no Chrome Web Store listing yet to update it for you automatically.
 
-**Web app:** if it's connected to your repo via the Cloudflare Pages dashboard, pushing/pulling a new version redeploys it automatically. If you used the Wrangler CLI instead, just re-run the same deploy command from step 3:
+**Web app:** re-run the same deploy command from step 3:
 
 ```bash
 cd web   # from the repo root
