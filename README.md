@@ -16,7 +16,7 @@ No accounts system, no arbitrary size limits, and no third party (not even the d
 
 - **Save tabs into folders** from a full-page folder browser (also your new tab page, optionally) or the toolbar popup — save the current tab, save every tab in the window, or drag a tab in from the live "open tabs" panel. _(Extension only — these need real browser-extension access.)_
   Saving is non-destructive: the original tab stays open.
-- **Browse and organize from any browser**, including your phone, via the web app — create/rename/delete/move folders and links, search, trash/restore. The one thing it can't do is drag-and-drop reordering (a browser tab has no equivalent to the extension's `chrome.tabs` access).
+- **Browse and organize from any browser**, including your phone, via the web app — create/rename/delete/move folders and links, search, trash/restore. Drag-and-drop reordering isn't built for it yet (see [KNOWN_GAPS.md](KNOWN_GAPS.md)).
 - **Sync across your devices** through your own Worker + D1 backend.
   Last-write-wins on conflicts; deletes are soft (nothing is destroyed by a sync, ever — see [ARCHITECTURE.md](ARCHITECTURE.md) for why).
 - **Organize** with workspaces → folders → entries, drag-and-drop reordering (extension), rename, search, and collapsible folders.
