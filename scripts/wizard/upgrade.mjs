@@ -11,9 +11,9 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { readFileSync } from "node:fs";
 import { ask, confirm } from "./lib/prompt.mjs";
-import { runCommand, wranglerBin, WizardAborted } from "./lib/exec.mjs";
+import { ensurePagesProjectExists, runCommand, wranglerBin, WizardAborted } from "./lib/exec.mjs";
 import { readWranglerToml } from "./lib/wranglerToml.mjs";
-import { readWizardConfig } from "./lib/wizardConfig.mjs";
+import { readWizardConfig, writeWizardConfig } from "./lib/wizardConfig.mjs";
 import * as ui from "./lib/style.mjs";
 
 const root = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
@@ -84,20 +84,32 @@ async function upgradeWorker(rl) {
 
 async function upgradeWeb(rl) {
   const wizardConfig = readWizardConfig(root);
-  if (!wizardConfig.pagesProjectName) {
+  let projectName = wizardConfig.pagesProjectName;
+
+  if (!projectName) {
     // Nothing recorded doesn't mean nothing's deployed — it just means it
-    // wasn't deployed via this wizard (e.g. MANUAL_SETUP.md's Option B), so
-    // there's no project name to act on. Say so rather than skipping silently.
-    ui.info(
-      "\nNo web app deployment recorded by this wizard — if you deployed it manually, rebuild and redeploy it yourself (see MANUAL_SETUP.md#upgrading).",
+    // wasn't deployed via this wizard (e.g. MANUAL_SETUP.md's Option B).
+    // Offer to adopt it: once we have the project name, upgrading it is
+    // identical to the wizard-tracked case, and remembering it here means
+    // this only needs to be entered once.
+    const hasManualDeploy = await confirm(
+      rl,
+      "\nNo web app deployment recorded by this wizard — did you deploy one manually (MANUAL_SETUP.md's Option B)?",
+      false,
     );
-    return;
+    if (!hasManualDeploy) return;
+    projectName = await ask(rl, "Cloudflare Pages project name");
+    if (!projectName) return;
+    writeWizardConfig(root, { pagesProjectName: projectName });
   }
 
-  const wantWeb = await confirm(rl, `\nAlso upgrade the web app (project "${wizardConfig.pagesProjectName}")?`, true);
+  const wantWeb = await confirm(rl, `\nUpgrade the web app (project "${projectName}")?`, true);
   if (!wantWeb) return;
 
   ui.heading("Web app");
+  const wrangler = wranglerBin(root);
+  await ensurePagesProjectExists(rl, wrangler, projectName);
+
   await runCommand(rl, {
     description: "Building the web app.",
     cmd: "npm",
@@ -105,11 +117,10 @@ async function upgradeWeb(rl) {
     cwd: root,
   });
 
-  const wrangler = wranglerBin(root);
   const { stdout } = await runCommand(rl, {
     description: "Deploying to Cloudflare Pages.",
     cmd: wrangler,
-    args: ["pages", "deploy", "dist", "--project-name", wizardConfig.pagesProjectName],
+    args: ["pages", "deploy", "dist", "--project-name", projectName],
     cwd: webDir,
     capture: true,
   });

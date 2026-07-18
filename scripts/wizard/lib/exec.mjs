@@ -66,3 +66,35 @@ export function wranglerBin(root) {
   }
   return bin;
 }
+
+/** `wrangler pages deploy` interactively prompts to create the project the
+ * first time it's used against a name that doesn't exist yet — a prompt
+ * that needs a real TTY on stdout, which piping stdout (to extract the
+ * deployed URL afterward) breaks. Creating the project explicitly first,
+ * whenever it isn't already there, means `pages deploy` never has to ask. */
+export async function ensurePagesProjectExists(rl, wrangler, projectName) {
+  const { stdout: listOut } = await runCommand(rl, {
+    description: `Checking whether the Cloudflare Pages project "${projectName}" already exists.`,
+    cmd: wrangler,
+    args: ["pages", "project", "list", "--json"],
+    capture: true,
+  });
+
+  let existingProjects = [];
+  try {
+    const jsonStart = listOut.indexOf("[");
+    existingProjects = jsonStart === -1 ? [] : JSON.parse(listOut.slice(jsonStart));
+  } catch {
+    // Falls through and attempts a create below — `pages project create`
+    // on an already-existing name just errors clearly, which is safer than
+    // silently assuming it doesn't exist and hitting the interactive prompt.
+  }
+
+  if (existingProjects.some((p) => p["Project Name"] === projectName)) return;
+
+  await runCommand(rl, {
+    description: `Creating Cloudflare Pages project "${projectName}".`,
+    cmd: wrangler,
+    args: ["pages", "project", "create", projectName, "--production-branch", "main"],
+  });
+}

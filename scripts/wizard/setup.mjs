@@ -12,7 +12,7 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { ask, confirm, select } from "./lib/prompt.mjs";
-import { runCommand, wranglerBin, WizardAborted } from "./lib/exec.mjs";
+import { ensurePagesProjectExists, runCommand, wranglerBin, WizardAborted } from "./lib/exec.mjs";
 import { readWranglerToml, writeWranglerToml } from "./lib/wranglerToml.mjs";
 import { readWizardConfig, writeWizardConfig } from "./lib/wizardConfig.mjs";
 import * as ui from "./lib/style.mjs";
@@ -215,6 +215,9 @@ async function setUpWeb(rl) {
   ui.heading("Web app");
   const wizardConfig = readWizardConfig(root);
   const projectName = await ask(rl, "Cloudflare Pages project name", wizardConfig.pagesProjectName ?? "shelve-web");
+  const wrangler = wranglerBin(root);
+
+  await ensurePagesProjectExists(rl, wrangler, projectName);
 
   await runCommand(rl, {
     description: "Building the web app.",
@@ -223,7 +226,6 @@ async function setUpWeb(rl) {
     cwd: root,
   });
 
-  const wrangler = wranglerBin(root);
   const { stdout } = await runCommand(rl, {
     description: "Deploying to Cloudflare Pages.",
     cmd: wrangler,
