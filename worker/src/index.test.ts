@@ -50,6 +50,33 @@ async function createFolder(id: string, workspaceId: string) {
   });
 }
 
+describe("CORS", () => {
+  it("responds to a preflight OPTIONS request without requiring auth", async () => {
+    const res = await SELF.fetch("https://worker.test/state", { method: "OPTIONS" });
+    expect(res.status).toBe(204);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(res.headers.get("Access-Control-Allow-Methods")).toContain("POST");
+    expect(res.headers.get("Access-Control-Allow-Headers")).toContain("Authorization");
+  });
+
+  it("includes CORS headers on a successful authenticated response", async () => {
+    const res = await SELF.fetch("https://worker.test/health", { headers: authedHeaders(TOKEN) });
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("includes CORS headers on a 401, so a browser can expose the error instead of blocking it", async () => {
+    const res = await SELF.fetch("https://worker.test/health");
+    expect(res.status).toBe(401);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("includes CORS headers on a 404", async () => {
+    const res = await SELF.fetch("https://worker.test/nope", { headers: authedHeaders(TOKEN) });
+    expect(res.status).toBe(404);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+});
+
 describe("auth", () => {
   it("rejects requests with no token", async () => {
     const res = await SELF.fetch("https://worker.test/health");

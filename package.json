@@ -6,7 +6,8 @@
     "shared",
     "worker",
     "core",
-    "extension"
+    "extension",
+    "web"
   ],
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",

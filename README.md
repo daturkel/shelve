@@ -7,6 +7,7 @@
 ![Shelve's folder browser, showing two folders of saved links](assets/screenshot.png)
 
 A Chrome extension for saving tabs into folders, synced across your devices via a Cloudflare Worker + D1 database that **you** deploy and own.
+An optional responsive web app (mobile and desktop browsers) shares the same backend, for full folder/link organizing when you're not on Chrome — see [step 5](#5-optional-deploy-the-web-app) if you want it.
 
 No accounts system, no arbitrary size limits, and no third party (not even the developer) ever sees your data — it goes only to the Cloudflare account you configure.
 (If you've used [Toby](https://www.gettoby.com/), the shape will be familiar — Shelve started as a self-hosted take on it, built after running into Toby's tab-sync size limit.)
@@ -19,11 +20,12 @@ No accounts system, no arbitrary size limits, and no third party (not even the d
   Last-write-wins on conflicts; deletes are soft (nothing is destroyed by a sync, ever — see [ARCHITECTURE.md](ARCHITECTURE.md) for why).
 - **Organize** with workspaces → folders → entries, drag-and-drop reordering, rename, search, and collapsible folders.
 - **Import/export your data** as a JSON backup, or migrate to/from Toby if you're coming from (or trying out) it.
+- **Browse and organize from a phone or any browser** via the optional web app (full CRUD — create/rename/delete/move folders and links, search, trash/restore) — the same non-Chrome-only functionality, minus drag-and-drop reordering and the live open-tabs panel, which need real browser-extension access.
 
 ## Status
 
 Functional, pre-1.0.
-The core save/sync/organize workflow works end-to-end and is unit- and integration-tested; a few nice-to-haves (richer open-tabs actions like close/reorder/multi-select, a trash view, tags) are still open.
+The core save/sync/organize workflow works end-to-end and is unit- and integration-tested on both the extension and the optional web app; a few nice-to-haves (tags, hard-deleting from trash, drag-and-drop reordering and PWA installability on the web app) are still open — see [KNOWN_GAPS.md](KNOWN_GAPS.md).
 
 ## Setup
 
@@ -88,6 +90,21 @@ Then in Chrome: `chrome://extensions` → enable **Developer mode** (top right) 
 Click the Shelve toolbar icon → the gear icon (or right-click the extension icon → **Options**).
 Enter the Worker URL and API token from step 2, click **Save** — it'll confirm the connection and tell you if it found existing data.
 
+### 5. (Optional) Deploy the web app
+
+Skip this if you're only using the extension — the Worker and extension work fully on their own.
+The web app is a separate, optional deployment: a responsive folder browser for mobile/desktop browsers, served as static files from [Cloudflare Pages](https://pages.cloudflare.com/), talking to the same Worker.
+
+In the Cloudflare dashboard, create a new Pages project connected to this repo (or your fork), with:
+
+- **Build command:** `npm run build --workspace=web`
+- **Build output directory:** `web/dist`
+
+No environment variables needed — the Worker URL and API token are entered in the deployed app itself (its own gear-icon settings screen, same idea as the extension's options page), not baked in at build time.
+Once deployed, open the Pages URL, go to Settings, and enter the same Worker URL/token from step 4.
+
+The web app's data is local-first (stored in the browser's IndexedDB, same architecture as the extension's `chrome.storage.local`) and syncs through your Worker exactly like another device — see [KNOWN_GAPS.md](KNOWN_GAPS.md) for what's different from the extension (no drag-and-drop reordering yet, no offline/installable PWA support yet).
+
 ### Upgrading
 
 The extension and the Worker are versioned together but deployed independently — you update each by hand, on your own schedule, so they can never be assumed to be in lock-step.
@@ -109,6 +126,8 @@ Then reload the extension from `chrome://extensions` (the circular reload icon o
 
 `wrangler d1 migrations apply` only runs migrations it hasn't already recorded as applied, so it's safe to run on every upgrade whether or not that particular update actually changed the schema.
 If you ever do update the extension before the Worker, the options page will show a clear warning ("Worker: vX.Y.Z — its schema is out of date") and sync pauses itself rather than risk losing data against a schema the Worker doesn't have yet — running the two `wrangler` commands above clears it.
+
+If you use the optional web app: it needs a Worker that includes CORS support, added in the same release as the web app itself — a normal `npx wrangler deploy` upgrade already covers this as long as you've redeployed since then. A Worker predating that will reject every request from the web app with an opaque network error rather than a readable one, since it never sends the headers a browser requires for a cross-origin request in the first place.
 
 ## FAQ
 
@@ -132,6 +151,10 @@ Realistically, $0/month.
 **How do multiple devices work?**
 Configure each device's extension with the same Worker URL and API token (step 4 above).
 They'll sync through your one Worker + D1 deployment.
+
+**Can I use Shelve from my phone or a non-Chrome browser?**
+Yes, via the optional web app (step 5) — deploy it once to Cloudflare Pages and it works from any modern browser, desktop or mobile.
+It shares the same Worker and data as the extension; the extension itself stays Chrome-only (browser extensions aren't cross-platform).
 
 **Can I migrate from Toby?**
 Yes — options page → Data → **Import from Toby**, pointed at Toby's own JSON export (Toby: Settings → Data → Export → JSON).

@@ -44,3 +44,26 @@ jobs:
           name: playwright-report
           path: extension/playwright-report/
           retention-days: 7
+
+  web-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm install
+      - run: npm run build --workspace=web
+      - run: npx playwright install --with-deps chromium
+      # A plain web page needs none of the extension e2e job's headed/xvfb
+      # complexity — Playwright's webServer starts/stops `vite preview`
+      # (serving the build from the step above) automatically.
+      - name: Run web e2e smoke suite
+        run: npm run test:e2e --workspace=web
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: web-playwright-report
+          path: web/playwright-report/
+          retention-days: 7
