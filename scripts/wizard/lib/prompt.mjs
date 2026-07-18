@@ -17,7 +17,10 @@ export async function confirm(rl, question, defaultYes = true) {
   return answer === "y" || answer === "yes";
 }
 
-/** choices: string[]. Returns the chosen index, or null if the user picked "abort". */
+/** choices: non-empty string[]. Loops until the user enters a valid 1-based
+ * number, then returns it as a 0-based index — there's no "abort" option;
+ * include one as a regular choice if a caller needs it (setup.mjs's "Create
+ * a new database" entry is exactly this pattern). */
 export async function select(rl, question, choices) {
   console.log(question);
   choices.forEach((choice, i) => console.log(`  ${i + 1}) ${choice}`));

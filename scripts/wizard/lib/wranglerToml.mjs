@@ -30,15 +30,19 @@ export function readWranglerToml(root) {
 }
 
 /** Copies wrangler.toml.example -> wrangler.toml if it doesn't exist yet,
- * then writes the given fields. Fields left undefined are untouched. */
+ * then writes the given fields. Fields left undefined are untouched.
+ * Replacements use a replacer function, not a replacement string — passing
+ * a user-supplied value straight through as a replacement string would let
+ * $&/$$/$1-style tokens in it silently corrupt the write. */
 export function writeWranglerToml(root, { name, databaseName, databaseId } = {}) {
   const { toml, example } = paths(root);
   if (!existsSync(toml)) copyFileSync(example, toml);
 
   let content = readFileSync(toml, "utf8");
-  if (name !== undefined) content = content.replace(/^name = "[^"]*"/m, `name = "${name}"`);
+  if (name !== undefined) content = content.replace(/^name = "[^"]*"/m, () => `name = "${name}"`);
   if (databaseName !== undefined)
-    content = content.replace(/database_name = "[^"]*"/, `database_name = "${databaseName}"`);
-  if (databaseId !== undefined) content = content.replace(/database_id = "[^"]*"/, `database_id = "${databaseId}"`);
+    content = content.replace(/database_name = "[^"]*"/, () => `database_name = "${databaseName}"`);
+  if (databaseId !== undefined)
+    content = content.replace(/database_id = "[^"]*"/, () => `database_id = "${databaseId}"`);
   writeFileSync(toml, content);
 }

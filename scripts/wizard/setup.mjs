@@ -84,6 +84,7 @@ async function setUpWorker(rl) {
 
   let databaseName;
   let databaseId;
+  let reusedExistingDb = false;
 
   if (existingDbs.length > 0) {
     const choices = [...existingDbs.map((db) => `Use existing: ${db.name}`), "Create a new database"];
@@ -94,6 +95,7 @@ async function setUpWorker(rl) {
       databaseId = db.uuid ?? db.database_id ?? db.id;
       if (!databaseId)
         throw new Error(`Couldn't determine the database_id for "${databaseName}" from d1 list's output.`);
+      reusedExistingDb = true;
     }
   }
 
@@ -102,12 +104,18 @@ async function setUpWorker(rl) {
     const { stdout: createOut } = await runCommand(rl, {
       description: `Creating D1 database "${databaseName}".`,
       cmd: wrangler,
-      args: ["d1", "create", databaseName],
+      args: ["d1", "create", databaseName, "--json"],
       cwd: workerDir,
       capture: true,
     });
-    databaseId = createOut.match(/database_id\s*=\s*"([^"]+)"/)?.[1];
-    if (!databaseId) throw new Error("Couldn't find database_id in `d1 create`'s output — check it above.");
+    try {
+      const jsonStart = createOut.indexOf("{");
+      const parsed = jsonStart === -1 ? null : JSON.parse(createOut.slice(jsonStart));
+      databaseId = parsed?.uuid ?? parsed?.database_id ?? parsed?.id;
+    } catch {
+      // falls through to the error below
+    }
+    if (!databaseId) throw new Error("Couldn't find database_id in `d1 create --json`'s output — check it above.");
   }
 
   const workerName = await ask(rl, "Name for the Worker", existing?.name ?? "shelve-worker");
@@ -123,16 +131,41 @@ async function setUpWorker(rl) {
     cwd: workerDir,
   });
 
-  const apiToken = randomBytes(32).toString("hex");
-  collected.apiToken = apiToken;
-  ui.warn("Generated a new API_TOKEN — it will be shown again in the summary at the end, but save it once set.");
-  await runCommand(rl, {
-    description: "Setting the API_TOKEN secret.",
-    cmd: wrangler,
-    args: ["secret", "put", "API_TOKEN"],
-    cwd: workerDir,
-    stdinInput: `${apiToken}\n`,
-  });
+  let apiToken;
+  if (reusedExistingDb) {
+    // This database may already belong to a Worker with clients configured
+    // against an existing API_TOKEN (e.g. worker/wrangler.toml was lost or
+    // never committed, but the Cloudflare-side deployment is still live) —
+    // rotating it here would silently 401 every device using the old one.
+    const rotate = await confirm(
+      rl,
+      "\nGenerate a new API_TOKEN for this database? Say no if a Worker is already deployed against it with clients configured — rotating it now would silently invalidate their access.",
+      false,
+    );
+    if (rotate) {
+      apiToken = randomBytes(32).toString("hex");
+      collected.apiToken = apiToken;
+      ui.warn("Generated a new API_TOKEN — it will be shown again in the summary at the end, but save it once set.");
+      await runCommand(rl, {
+        description: "Setting the API_TOKEN secret.",
+        cmd: wrangler,
+        args: ["secret", "put", "API_TOKEN"],
+        cwd: workerDir,
+        stdinInput: `${apiToken}\n`,
+      });
+    }
+  } else {
+    apiToken = randomBytes(32).toString("hex");
+    collected.apiToken = apiToken;
+    ui.warn("Generated a new API_TOKEN — it will be shown again in the summary at the end, but save it once set.");
+    await runCommand(rl, {
+      description: "Setting the API_TOKEN secret.",
+      cmd: wrangler,
+      args: ["secret", "put", "API_TOKEN"],
+      cwd: workerDir,
+      stdinInput: `${apiToken}\n`,
+    });
+  }
 
   await deployWorkerAndCheckHealth(rl, wrangler, apiToken);
 }

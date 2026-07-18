@@ -14,7 +14,14 @@ function configPath(root) {
 export function readWizardConfig(root) {
   const path = configPath(root);
   if (!existsSync(path)) return {};
-  return JSON.parse(readFileSync(path, "utf8"));
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    // Not atomic to write (see writeWizardConfig) — a killed process mid-write
+    // can leave this truncated/invalid. Nothing here is unrecoverable state,
+    // so treat it the same as a missing file rather than crashing the wizard.
+    return {};
+  }
 }
 
 export function writeWizardConfig(root, updates) {
