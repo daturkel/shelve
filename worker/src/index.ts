@@ -193,6 +193,19 @@ export default {
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: CORS_HEADERS });
     }
-    return withCors(await route(request, env));
+    // route() itself isn't wrapped in a try/catch, so an uncaught
+    // exception (a D1 failure, any other runtime bug) would otherwise
+    // propagate past withCors entirely — the Workers runtime's own
+    // generic error response carries no CORS headers, so the browser
+    // blocks it from JS and a web client sees an opaque "Failed to
+    // fetch" instead of a readable error, exactly the failure mode this
+    // CORS work exists to fix, for precisely the case (server errors)
+    // where it matters most.
+    try {
+      return withCors(await route(request, env));
+    } catch (e) {
+      console.error("shelve worker: unhandled error", e);
+      return withCors(new Response("Internal error", { status: 500 }));
+    }
   },
 } satisfies ExportedHandler<Env>;

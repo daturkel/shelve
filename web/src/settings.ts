@@ -6,7 +6,7 @@ import {
   mergeState,
   pushAll,
 } from "@shelve/core/lib/sync";
-import { getUiState, setUiState, type UiState } from "@shelve/core/lib/uiState";
+import { setUiState, type UiState } from "@shelve/core/lib/uiState";
 import { loadState, saveState } from "@shelve/core/lib/storage";
 import { importToby, exportToby, isTobyExport } from "@shelve/core/lib/tobyImport";
 import { downloadJson, readFileAsJson, isRemoteState } from "@shelve/core/lib/backupFile";
@@ -22,10 +22,14 @@ import { showConfirm } from "@shelve/core/lib/modal";
  * and a full reload on save rather than an in-place status refresh —
  * core/lib/sync.ts's checkCompatibility() result is memoized for the
  * page's lifetime with no cache-bust export, so an in-place config
- * change would silently keep checking the old Worker's health. */
-export async function buildSettings(onClose: () => void): Promise<HTMLElement> {
+ * change would silently keep checking the old Worker's health.
+ *
+ * Takes `uiState` from the caller (main.ts's `ctx.uiState`) rather than
+ * fetching its own copy — main.ts holds `ctx.uiState` for the app's
+ * whole lifetime, and a second, disconnected UiState object here would
+ * let the theme toggle silently diverge from it until a hard reload. */
+export async function buildSettings(uiState: UiState, onClose: () => void): Promise<HTMLElement> {
   const config = await getConfig();
-  const uiState = await getUiState();
 
   const wrap = document.createElement("div");
   wrap.className = "settings";
@@ -152,7 +156,13 @@ export async function buildSettings(onClose: () => void): Promise<HTMLElement> {
       status.className = "status";
       return;
     }
-    await setConfig({ workerUrl, apiToken });
+    try {
+      await setConfig({ workerUrl, apiToken });
+    } catch (e) {
+      status.textContent = `Couldn't save: ${e instanceof Error ? e.message : String(e)}`;
+      status.className = "status error";
+      return;
+    }
 
     status.textContent = "Saved. Checking connection…";
     status.className = "status";
@@ -177,7 +187,13 @@ export async function buildSettings(onClose: () => void): Promise<HTMLElement> {
   disconnectBtn.onclick = async () => {
     const ok = await showConfirm("Disconnect from this Worker?", "Disconnect");
     if (!ok) return;
-    await setConfig({ workerUrl: "", apiToken: "" });
+    try {
+      await setConfig({ workerUrl: "", apiToken: "" });
+    } catch (e) {
+      status.textContent = `Couldn't disconnect: ${e instanceof Error ? e.message : String(e)}`;
+      status.className = "status error";
+      return;
+    }
     location.reload();
   };
 

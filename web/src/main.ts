@@ -70,8 +70,17 @@ onSyncStatusChange(() => void render());
 
 // One-time: reload in-memory state and re-render when another same-origin
 // tab changes the store — see webStore.ts's onRemoteChange doc comment.
+// Skipped while a modal is open: a handler like folders.ts's
+// renameFolderInteractive captures a record reference, awaits the modal,
+// then mutates and pushes that same reference — if ctx.state were
+// wholesale-replaced with a fresh object graph while the modal is open,
+// the mutation would land on the new graph but the push would still use
+// the old, now-orphaned, unmutated reference, sending stale data to the
+// Worker. Deferring the reload until no modal is open (it'll pick up the
+// change on the next natural render instead) closes that window.
 onRemoteChange(() => {
   void (async () => {
+    if (document.querySelector(".modal-overlay")) return;
     ctx.state = await loadState();
     await render();
   })();
@@ -96,6 +105,19 @@ async function rerender() {
 }
 
 async function persistUiState() {
+  // core/ui/toolbar.ts's ☰ toggle (shared with the extension) flips and
+  // persists uiState.leftCollapsed unconditionally — the same field
+  // main.ts overloads as "is the mobile drawer open" on narrow
+  // viewports. Persisting a mobile drawer toggle as-is would clobber
+  // the desktop sidebar-visibility preference stored under that same
+  // key, surprising a user who later opens the same browser profile at
+  // desktop width. On mobile, persist everything else but keep
+  // whatever was last saved for leftCollapsed.
+  if (window.matchMedia("(max-width: 768px)").matches) {
+    const stored = await getUiState();
+    await setUiState({ ...ctx.uiState, leftCollapsed: stored.leftCollapsed });
+    return;
+  }
   await setUiState(ctx.uiState);
 }
 
@@ -116,7 +138,7 @@ async function buildMain(): Promise<HTMLElement> {
   main.className = "main";
   if (showSettings) {
     main.appendChild(
-      await buildSettings(() => {
+      await buildSettings(ctx.uiState, () => {
         showSettings = false;
         void render();
       }),

@@ -13,7 +13,15 @@ function openDb(): Promise<IDBDatabase> {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => request.result.createObjectStore(STORE_NAME);
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error as Error);
+    request.onerror = () => {
+      // A transient failure (a blocked upgrade from another open tab, a
+      // one-time quota error) shouldn't poison the store forever — reset
+      // the cached promise so the next get()/set() call retries opening
+      // the database instead of permanently re-rejecting with this
+      // same stale error for the rest of the page's lifetime.
+      dbPromise = null;
+      reject(request.error as Error);
+    };
   });
   return dbPromise;
 }
@@ -22,14 +30,12 @@ function openDb(): Promise<IDBDatabase> {
 // guaranteed by any browser, so failures here are silently ignored rather
 // than surfaced (nothing meaningful for the UI to do about a "no" beyond
 // what already happens if a write later fails).
-if (typeof navigator !== "undefined" && navigator.storage?.persist) {
-  void navigator.storage.persist();
-}
+void navigator.storage?.persist();
 
 // No native cross-tab change event for IndexedDB the way `localStorage`
 // has (window's "storage" event is localStorage/sessionStorage-only) —
 // BroadcastChannel is the equivalent primitive. See onRemoteChange below.
-const channel = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel(CHANNEL_NAME) : null;
+const channel = new BroadcastChannel(CHANNEL_NAME);
 
 /** The web app's Store implementation, backed by IndexedDB rather than
  * localStorage — Store's interface is already Promise-based (designed
@@ -56,8 +62,13 @@ export const webStore: Store = {
       tx.objectStore(STORE_NAME).put(value, key);
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error as Error);
+      // A transaction can abort without a corresponding request error
+      // (e.g. under storage pressure) — without this, that case would
+      // leave the promise pending forever, hanging any awaited caller
+      // (saveState/setUiState/setConfig) indefinitely.
+      tx.onabort = () => reject(tx.error ?? new Error("IndexedDB transaction aborted"));
     });
-    channel?.postMessage({ key });
+    channel.postMessage({ key });
   },
 };
 
@@ -68,5 +79,5 @@ export const webStore: Store = {
  * same instant still last-write-wins at the storage layer, same failure
  * class as the extension's analogous two-newtab-windows risk. */
 export function onRemoteChange(listener: (key: string) => void): void {
-  channel?.addEventListener("message", (ev: MessageEvent<{ key: string }>) => listener(ev.data.key));
+  channel.addEventListener("message", (ev: MessageEvent<{ key: string }>) => listener(ev.data.key));
 }
