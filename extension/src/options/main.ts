@@ -194,7 +194,13 @@ async function render() {
       status.className = "status";
       return;
     }
-    await setConfig({ workerUrl, apiToken });
+    try {
+      await setConfig({ workerUrl, apiToken });
+    } catch (e) {
+      status.textContent = `Couldn't save: ${e instanceof Error ? e.message : String(e)}`;
+      status.className = "status error";
+      return;
+    }
 
     // Confirm the URL/token actually work right here, rather than leaving
     // the user to wonder why nothing happened until they open a new tab —
