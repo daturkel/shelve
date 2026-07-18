@@ -10,3 +10,4 @@ playwright-report/
 .dev.vars
 worker/wrangler.toml
 plans/
+.shelve/

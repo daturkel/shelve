@@ -47,17 +47,41 @@ body {
 }
 
 .rail-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
   padding: 6px 8px;
   border-radius: 6px;
   cursor: pointer;
   color: var(--text-dim);
-  white-space: nowrap;
 }
 .rail-item:hover {
   background: var(--bg-hover);
 }
 .rail-item.active {
   background: var(--bg-hover);
+  color: var(--text);
+}
+
+.rail-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-item-delete {
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  visibility: hidden;
+  flex-shrink: 0;
+}
+.rail-item:hover .rail-item-delete {
+  visibility: visible;
+}
+.rail-item-delete:hover {
   color: var(--text);
 }
 

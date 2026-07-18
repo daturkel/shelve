@@ -1,4 +1,4 @@
-import { type State, loadState, saveState } from "@shelve/core/lib/storage";
+import { type State, loadState, saveState, pickDefaultWorkspaceId } from "@shelve/core/lib/storage";
 import { pullAndMerge, pushAll, onSyncStatusChange } from "@shelve/core/lib/sync";
 import { getUiState, setUiState } from "@shelve/core/lib/uiState";
 import { applyTheme } from "@shelve/core/lib/theme";
@@ -15,10 +15,20 @@ import { buildSettings } from "./settings";
 setStore(webStore);
 
 let state: State = await loadState();
-const merged = await pullAndMerge(state);
-if (merged) {
-  state = merged;
-  await saveState(state);
+// The rest of startup (render() at the very bottom of this module) must
+// run even if the initial sync pull fails outright — an uncaught
+// exception here is a top-level await rejection, which aborts the entire
+// module and leaves #app permanently empty rather than falling back to
+// local-only state (e.g. a misconfigured Worker URL causing an unexpected
+// response shape, or any other unanticipated failure mode).
+try {
+  const merged = await pullAndMerge(state);
+  if (merged) {
+    state = merged;
+    await saveState(state);
+  }
+} catch (e) {
+  console.error("shelve: initial sync pull failed, continuing with local state", e);
 }
 // Catches records created locally but never successfully synced — most
 // notably the default "Home" workspace from first run.
@@ -48,7 +58,7 @@ let showSettings = false;
 const ctx: AppContext = {
   state,
   uiState,
-  activeWorkspaceId: state.workspaces[0]?.id ?? "",
+  activeWorkspaceId: pickDefaultWorkspaceId(state),
   searchQuery: "",
   showTrash: false,
   selectedTabIds: new Set(),
