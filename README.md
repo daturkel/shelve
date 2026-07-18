@@ -31,120 +31,30 @@ The core save/sync/organize workflow works end-to-end and is unit- and integrati
 
 One required piece — a Cloudflare Worker + D1 database, the sync backend, deployed to _your_ Cloudflare account — plus whichever client(s) you actually want to use on top of it: the Chrome extension, the web app, or both. Neither client depends on the other; pick what fits how you browse.
 
-### Prerequisites
-
-- [Node.js](https://nodejs.org/) 20 or later (an LTS release recommended — this repo was built against Node 24)
-- A [Cloudflare account](https://dash.cloudflare.com/sign-up) (the free tier is more than sufficient for personal use)
-
-### 1. Install dependencies
-
-From the repo root:
+Prerequisites: [Node.js](https://nodejs.org/) 20 or later (an LTS release recommended — this repo was built against Node 24), and a [Cloudflare account](https://dash.cloudflare.com/sign-up) (the free tier is more than sufficient for personal use).
 
 ```bash
 npm install
+npm run setup
 ```
 
-### 2. Deploy the backend
+An interactive wizard that deploys the Worker + D1 backend and, optionally, the web app. It prints every command before running it and asks for confirmation first, so nothing happens without your say-so, and it's safe to re-run if you stop partway through — it detects what's already done. Chrome extension setup is still a manual browser step (`chrome://extensions` → Load unpacked) that the wizard prints instructions for at the end.
 
-```bash
-cd worker
-npx wrangler login          # opens a browser to authorize Wrangler
-npx wrangler d1 create shelve-db    # name it whatever you like
-```
-
-Copy `wrangler.toml.example` to `wrangler.toml`, and paste in the `database_id` that `d1 create` just printed.
-You can also rename `name` (the Worker) and `database_name` (the D1 database) to anything you want — they're just labels in your own account, nothing else depends on the specific strings `shelve-worker`/`shelve-db`.
-
-```bash
-cp wrangler.toml.example wrangler.toml
-# edit wrangler.toml: paste in database_id, optionally rename name/database_name
-
-npx wrangler d1 migrations apply shelve-db --remote   # apply the schema
-
-# generate a random token, then paste it when `secret put` prompts:
-openssl rand -hex 32
-npx wrangler secret put API_TOKEN
-
-npx wrangler deploy
-```
-
-`wrangler deploy` prints your Worker's live URL (`https://<your-worker-name>.<your-subdomain>.workers.dev`) — save it, you'll need it in step 3.
-Save the `API_TOKEN` value too (e.g. in a password manager) — it's a write-only secret in Cloudflare, there's no way to read it back later.
-
-### 3. Set up a client — pick one or both
-
-Both talk to the same Worker from step 2 and share the same data; neither depends on the other being set up.
-
-#### Option A: Chrome extension
-
-No Chrome Web Store listing yet — load it unpacked.
-Either build it yourself:
-
-```bash
-cd extension   # from the repo root
-npm run build
-```
-
-...or skip building entirely: grab the latest `shelve-extension-vX.Y.Z.zip` from [Releases](https://github.com/daturkel/shelve/releases) and unzip it.
-
-Then in Chrome: `chrome://extensions` → enable **Developer mode** (top right) → **Load unpacked** → select `extension/dist` (or the folder you just unzipped).
-
-**Configure sync:** click the Shelve toolbar icon → the gear icon (or right-click the extension icon → **Options**). Enter the Worker URL and API token from step 2, click **Save** — it'll confirm the connection and tell you if it found existing data.
-
-#### Option B: Web app
-
-A responsive folder browser for any browser, desktop or mobile, deployed as static files to [Cloudflare Pages](https://pages.cloudflare.com/) via the same Wrangler CLI as step 2. No environment variables needed at build time — the Worker URL and API token are entered in the deployed app itself (its own gear-icon settings screen, same idea as the extension's options page).
-
-```bash
-cd web   # from the repo root
-npm run build
-npx wrangler pages deploy dist --project-name=shelve-web   # name it whatever you like; first run prompts to create the project
-```
-
-Open the printed Pages URL, go to Settings, and enter the same Worker URL/token from step 2.
-
-Re-run the same `wrangler pages deploy` command any time you want to push a new build — nothing auto-deploys on its own.
-
-The web app's data is local-first (stored in the browser's IndexedDB, same architecture as the extension's `chrome.storage.local`) and syncs through your Worker exactly like another device — see [KNOWN_GAPS.md](KNOWN_GAPS.md) for what's different from the extension (no drag-and-drop reordering yet, no offline/installable PWA support yet).
+Prefer doing it by hand, or want to know what the wizard is actually doing? See [MANUAL_SETUP.md](MANUAL_SETUP.md).
 
 ### Upgrading
 
-The Worker and each client are versioned together but deployed independently — you update each by hand, on your own schedule, so they can never be assumed to be in lock-step. Update the Worker first, then whichever client(s) you have set up:
-
 ```bash
-cd worker   # from the repo root
-npx wrangler d1 migrations apply shelve-db --remote   # applies any new migrations; a no-op if there aren't any
-npx wrangler deploy
+npm run upgrade
 ```
 
-`wrangler d1 migrations apply` only runs migrations it hasn't already recorded as applied, so it's safe to run on every upgrade whether or not that particular update actually changed the schema.
-If you ever do update a client before the Worker, it'll show a clear warning ("Worker: vX.Y.Z — its schema is out of date") and sync pauses itself rather than risk losing data against a schema the Worker doesn't have yet — running the command above clears it.
-
-**Extension:**
-
-```bash
-cd extension   # from the repo root
-npm run build
-```
-
-(Or download the new version's zip from [Releases](https://github.com/daturkel/shelve/releases) instead of building it yourself — same as initial setup.)
-Then reload the extension from `chrome://extensions` (the circular reload icon on Shelve's card, or **Remove** + **Load unpacked** again if you switched to a freshly-unzipped folder) — unpacked extensions don't auto-reload on file or folder changes, and there's no Chrome Web Store listing yet to update it for you automatically.
-
-**Web app:** re-run the same deploy command from step 3:
-
-```bash
-cd web   # from the repo root
-npm run build
-npx wrangler pages deploy dist --project-name=shelve-web
-```
-
-It also needs a Worker that includes CORS support, added in the same release as the web app itself — a normal `npx wrangler deploy` upgrade already covers this as long as you've redeployed since then. A Worker predating that will reject every request from the web app with an opaque network error rather than a readable one, since it never sends the headers a browser requires for a cross-origin request in the first place.
+Same idea: an interactive wizard that applies any new migrations, redeploys the Worker, and optionally redeploys the web app if you set it up via the wizard — printing and confirming each command first, and printing instructions for updating the extension (a manual step) at the end. See [MANUAL_SETUP.md](MANUAL_SETUP.md#upgrading) for the equivalent by-hand steps.
 
 ## FAQ
 
 **What is Wrangler?**
 Cloudflare's official CLI for developing and deploying Workers, D1 databases, Pages, and the rest of the Cloudflare developer platform.
-Every `npx wrangler ...` command in Setup uses it — `npx` runs the version pinned in `worker/package.json` on the fly (npm workspaces hoist it repo-wide, so this works the same from `web/` as it does from `worker/`), so you never install anything globally just to deploy Shelve.
+`npm run setup`/`npm run upgrade` drive it for you; every command in [MANUAL_SETUP.md](MANUAL_SETUP.md) uses it directly via `npx wrangler ...`, which runs the version pinned in `worker/package.json` on the fly (npm workspaces hoist it repo-wide, so this works the same from `web/` as it does from `worker/`) — you never install anything globally just to deploy Shelve.
 
 **Should I install Node.js globally or per-user?**
 Either works, but a per-user install is generally the better default if you do any other JS/TS development: a [version manager](https://github.com/nvm-sh/nvm) (nvm, fnm, volta, etc.) installs Node under your home directory, needs no `sudo`, and lets you switch Node versions per project.
@@ -160,11 +70,11 @@ Cloudflare's free tier (100k Worker requests/day, 5GB D1 storage) comfortably co
 Realistically, $0/month.
 
 **How do multiple devices work?**
-Configure each device's client — extension, web app, or both — with the same Worker URL and API token (step 3 above).
+Configure each device's client — extension, web app, or both — with the same Worker URL and API token (from `npm run setup`, or [MANUAL_SETUP.md](MANUAL_SETUP.md#3-set-up-a-client--pick-one-or-both)).
 They'll sync through your one Worker + D1 deployment, regardless of which client(s) each device uses.
 
 **Can I use Shelve from my phone or a non-Chrome browser?**
-Yes, via the web app (step 3, option B) — deploy it once to Cloudflare Pages and it works from any modern browser, desktop or mobile.
+Yes, via the web app ([MANUAL_SETUP.md, Option B](MANUAL_SETUP.md#option-b-web-app)) — deploy it once to Cloudflare Pages and it works from any modern browser, desktop or mobile.
 It shares the same Worker and data as the extension; the extension itself stays Chrome-only (browser extensions aren't cross-platform).
 
 **Can I migrate from Toby?**
