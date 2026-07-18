@@ -1,15 +1,16 @@
 {
-  "name": "@shelve/extension",
+  "name": "@shelve/web",
   "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vite build && cp manifest.json dist/manifest.json",
+    "build": "vite build",
     "watch": "vite build --watch",
+    "dev": "vite",
+    "preview": "vite preview",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "typecheck": "tsc --noEmit",
-    "screenshot": "node scripts/generate-readme-screenshot.mjs"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@shelve/core": "*",
@@ -17,7 +18,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
-    "@types/chrome": "^0.0.324",
+    "fake-indexeddb": "^6.2.2",
     "happy-dom": "^20.10.6",
     "playwright": "^1.61.1",
     "typescript": "^5.9.3",

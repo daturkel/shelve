@@ -6,39 +6,44 @@ import {
   mergeState,
   pushAll,
 } from "@shelve/core/lib/sync";
-import { getUiState, setUiState, type UiState } from "@shelve/core/lib/uiState";
+import { setUiState, type UiState } from "@shelve/core/lib/uiState";
 import { loadState, saveState } from "@shelve/core/lib/storage";
 import { importToby, exportToby, isTobyExport } from "@shelve/core/lib/tobyImport";
 import { downloadJson, readFileAsJson, isRemoteState } from "@shelve/core/lib/backupFile";
 import { applyTheme } from "@shelve/core/lib/theme";
-import { setStore } from "@shelve/core/lib/store";
-import { chromeStore } from "../lib/chromeStore";
+import { showConfirm } from "@shelve/core/lib/modal";
 
-setStore(chromeStore);
-
-const app = document.getElementById("app")!;
-
-async function render() {
+/** The web app's settings/connect screen — Worker URL/token, theme,
+ * backup/Toby import-export, modeled on extension/src/options/main.ts
+ * but web-specific in a few ways: no showOnNewTab/closeTabOnSave (both
+ * are extension-only concepts, meaningless on web since
+ * TabActions.close is a no-op), a Disconnect action (no separate
+ * options page exists on web to recover from a bad token otherwise),
+ * and a full reload on save rather than an in-place status refresh —
+ * core/lib/sync.ts's checkCompatibility() result is memoized for the
+ * page's lifetime with no cache-bust export, so an in-place config
+ * change would silently keep checking the old Worker's health.
+ *
+ * Takes `uiState` from the caller (main.ts's `ctx.uiState`) rather than
+ * fetching its own copy — main.ts holds `ctx.uiState` for the app's
+ * whole lifetime, and a second, disconnected UiState object here would
+ * let the theme toggle silently diverge from it until a hard reload. */
+export async function buildSettings(uiState: UiState, onClose: () => void): Promise<HTMLElement> {
   const config = await getConfig();
-  const uiState = await getUiState();
-  applyTheme(uiState.theme);
-
-  app.innerHTML = "";
 
   const wrap = document.createElement("div");
-  wrap.className = "options";
+  wrap.className = "settings";
 
   const titleRow = document.createElement("div");
   titleRow.className = "title-row";
+  const backBtn = document.createElement("button");
+  backBtn.className = "back-btn";
+  backBtn.textContent = "← Back";
+  backBtn.onclick = onClose;
+  titleRow.appendChild(backBtn);
   const h1 = document.createElement("h1");
-  h1.textContent = "Shelve";
+  h1.textContent = "Settings";
   titleRow.appendChild(h1);
-  const version = document.createElement("span");
-  version.className = "version";
-  // Read live from the manifest rather than hardcoding, so it can never
-  // drift from the actual installed version.
-  version.textContent = `v${chrome.runtime.getManifest().version}`;
-  titleRow.appendChild(version);
   wrap.appendChild(titleRow);
 
   const hint = document.createElement("p");
@@ -77,10 +82,6 @@ async function render() {
     workerStatus.className = kind ? `status ${kind}` : "status";
   }
 
-  // Fetched fresh (not cached) each time this runs — on initial load if
-  // already configured, and again right after a successful Save — so this
-  // always reflects the Worker actually behind the currently-saved
-  // URL/token, not a stale check from a previous session.
   async function refreshWorkerStatus() {
     const health = await fetchWorkerHealth();
     if (!health) {
@@ -96,7 +97,6 @@ async function render() {
     }
     setWorkerStatus(`Worker: v${health.version}`, "success");
   }
-
   if (config) void refreshWorkerStatus();
 
   const themeField = document.createElement("div");
@@ -117,70 +117,32 @@ async function render() {
     btn.type = "button";
     btn.className = "theme-toggle-btn" + (uiState.theme === value ? " active" : "");
     btn.textContent = label;
-    // Applies immediately (rather than waiting for the Save button, which
-    // only persists Worker URL/token) and persists to uiState right away,
-    // same as the checkboxes below — re-renders so the active-button
-    // highlight moves without needing a page reload.
     btn.onclick = async () => {
       uiState.theme = value;
       await setUiState(uiState);
       applyTheme(uiState.theme);
-      void render();
+      for (const sibling of Array.from(themeToggle.children)) sibling.classList.remove("active");
+      btn.classList.add("active");
     };
     themeToggle.appendChild(btn);
   }
   themeField.appendChild(themeToggle);
   wrap.appendChild(themeField);
 
-  const newtabField = document.createElement("div");
-  newtabField.className = "field field-checkbox";
-  const newtabLabel = document.createElement("label");
-  const newtabCheckbox = document.createElement("input");
-  newtabCheckbox.type = "checkbox";
-  newtabCheckbox.checked = uiState.showOnNewTab;
-  newtabLabel.append(newtabCheckbox, " Show Shelve when opening a new tab");
-  newtabField.appendChild(newtabLabel);
-  wrap.appendChild(newtabField);
-
-  const newtabHint = document.createElement("p");
-  newtabHint.className = "hint";
-  newtabHint.textContent =
-    "When off, new tabs show Chrome's normal default page. Open Shelve anytime from the toolbar button.";
-  wrap.appendChild(newtabHint);
-
-  // Mutates the shared uiState object (rather than spreading a stale
-  // page-load snapshot into setUiState) so toggling this checkbox and
-  // then the one below don't clobber each other's change.
-  newtabCheckbox.onchange = async () => {
-    uiState.showOnNewTab = newtabCheckbox.checked;
-    await setUiState(uiState);
-  };
-
-  const closeTabField = document.createElement("div");
-  closeTabField.className = "field field-checkbox";
-  const closeTabLabel = document.createElement("label");
-  const closeTabCheckbox = document.createElement("input");
-  closeTabCheckbox.type = "checkbox";
-  closeTabCheckbox.checked = uiState.closeTabOnSave;
-  closeTabLabel.append(closeTabCheckbox, " Close tabs after saving them");
-  closeTabField.appendChild(closeTabLabel);
-  wrap.appendChild(closeTabField);
-
-  const closeTabHint = document.createElement("p");
-  closeTabHint.className = "hint";
-  closeTabHint.textContent =
-    "When on, dragging or saving a tab into a folder closes it afterward. Off by default — saving stays non-destructive unless you turn this on.";
-  wrap.appendChild(closeTabHint);
-
-  closeTabCheckbox.onchange = async () => {
-    uiState.closeTabOnSave = closeTabCheckbox.checked;
-    await setUiState(uiState);
-  };
+  const actionsRow = document.createElement("div");
+  actionsRow.className = "data-row";
 
   const saveBtn = document.createElement("button");
   saveBtn.className = "save-btn";
   saveBtn.textContent = "Save";
-  wrap.appendChild(saveBtn);
+  actionsRow.appendChild(saveBtn);
+
+  const disconnectBtn = document.createElement("button");
+  disconnectBtn.className = "menu-btn";
+  disconnectBtn.textContent = "Disconnect";
+  disconnectBtn.hidden = !config;
+  actionsRow.appendChild(disconnectBtn);
+  wrap.appendChild(actionsRow);
 
   const status = document.createElement("div");
   status.className = "status";
@@ -202,10 +164,6 @@ async function render() {
       return;
     }
 
-    // Confirm the URL/token actually work right here, rather than leaving
-    // the user to wonder why nothing happened until they open a new tab —
-    // especially important when setting up a device that should already
-    // have existing folders waiting on the Worker.
     status.textContent = "Saved. Checking connection…";
     status.className = "status";
     const remote = await fetchRemoteState();
@@ -220,10 +178,23 @@ async function render() {
     const entryCount = remote.entries.filter((e) => e.deleted_at === null).length;
     status.textContent =
       folderCount === 0 && entryCount === 0
-        ? "Connected. No existing data yet — you're starting fresh."
-        : `Connected. Found ${workspaceCount} workspace${workspaceCount === 1 ? "" : "s"}, ${folderCount} folder${folderCount === 1 ? "" : "s"}, and ${entryCount} saved tab${entryCount === 1 ? "" : "s"} — open a new tab to sync them in.`;
+        ? "Connected. No existing data yet — you're starting fresh. Reloading…"
+        : `Connected. Found ${workspaceCount} workspace${workspaceCount === 1 ? "" : "s"}, ${folderCount} folder${folderCount === 1 ? "" : "s"}, and ${entryCount} saved link${entryCount === 1 ? "" : "s"} — reloading…`;
     status.className = "status success";
-    void refreshWorkerStatus();
+    setTimeout(() => location.reload(), 1200);
+  };
+
+  disconnectBtn.onclick = async () => {
+    const ok = await showConfirm("Disconnect from this Worker?", "Disconnect");
+    if (!ok) return;
+    try {
+      await setConfig({ workerUrl: "", apiToken: "" });
+    } catch (e) {
+      status.textContent = `Couldn't disconnect: ${e instanceof Error ? e.message : String(e)}`;
+      status.className = "status error";
+      return;
+    }
+    location.reload();
   };
 
   // ---------- Data: backup and Toby migration ----------
@@ -245,9 +216,6 @@ async function render() {
     dataStatus.className = kind ? `status ${kind}` : "status";
   }
 
-  // Native Shelve backup: reuses mergeState() on import, since our own
-  // ids are meaningful — safe to re-import the same backup file twice,
-  // or one that partially overlaps what's already local.
   const backupRow = document.createElement("div");
   backupRow.className = "data-row";
 
@@ -292,9 +260,6 @@ async function render() {
   backupRow.append(importBackupBtn, backupFileInput);
   wrap.appendChild(backupRow);
 
-  // Toby import/export: fresh ids on import (Toby's data has no id
-  // compatible with ours), note-only entries dropped on export (Toby's
-  // card format is always URL-backed), tags ignored both ways.
   const tobyRow = document.createElement("div");
   tobyRow.className = "data-row";
 
@@ -347,7 +312,5 @@ async function render() {
 
   wrap.appendChild(dataStatus);
 
-  app.appendChild(wrap);
+  return wrap;
 }
-
-render();

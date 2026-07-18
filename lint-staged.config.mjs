@@ -11,19 +11,24 @@ export default {
     "npm run typecheck --workspace=worker",
     "npm run typecheck --workspace=core",
     "npm run typecheck --workspace=extension",
+    "npm run typecheck --workspace=web",
     "npm run test --workspace=worker",
     "npm run test --workspace=core",
     "npm run test --workspace=extension",
+    "npm run test --workspace=web",
   ],
   "worker/**/*.ts": () => ["npm run typecheck --workspace=worker", "npm run test --workspace=worker"],
-  // A change under core/ also re-checks extension, the only consumer.
+  // A change under core/ also re-checks extension and web, its consumers.
   "core/**/*.ts": () => [
     "npm run typecheck --workspace=core",
     "npm run typecheck --workspace=extension",
+    "npm run typecheck --workspace=web",
     "npm run test --workspace=core",
     "npm run test --workspace=extension",
+    "npm run test --workspace=web",
   ],
   "extension/**/*.ts": () => ["npm run typecheck --workspace=extension", "npm run test --workspace=extension"],
+  "web/**/*.ts": () => ["npm run typecheck --workspace=web", "npm run test --workspace=web"],
   "**/*.{ts,mjs}": ["eslint --fix", "prettier --write"],
   "**/*.{css,md,json,html}": "prettier --write",
 };

@@ -1,12 +1,13 @@
 {
   "name": "shelve",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "workspaces": [
     "shared",
     "worker",
     "core",
-    "extension"
+    "extension",
+    "web"
   ],
   "scripts": {
     "typecheck": "npm run typecheck --workspaces --if-present",

@@ -2,6 +2,7 @@ import { SCHEMA_VERSION } from "@shelve/shared";
 import { env, SELF } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { WORKER_VERSION } from "./version";
+import worker, { type Env } from "./index";
 // @ts-expect-error -- raw text import, handled by the vite/esbuild layer
 import initSql from "../migrations/0001_init.sql?raw";
 // @ts-expect-error -- raw text import, handled by the vite/esbuild layer
@@ -49,6 +50,51 @@ async function createFolder(id: string, workspaceId: string) {
     updated_at: 1,
   });
 }
+
+describe("CORS", () => {
+  it("responds to a preflight OPTIONS request without requiring auth", async () => {
+    const res = await SELF.fetch("https://worker.test/state", { method: "OPTIONS" });
+    expect(res.status).toBe(204);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(res.headers.get("Access-Control-Allow-Methods")).toContain("POST");
+    expect(res.headers.get("Access-Control-Allow-Headers")).toContain("Authorization");
+  });
+
+  it("includes CORS headers on a successful authenticated response", async () => {
+    const res = await SELF.fetch("https://worker.test/health", { headers: authedHeaders(TOKEN) });
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("includes CORS headers on a 401, so a browser can expose the error instead of blocking it", async () => {
+    const res = await SELF.fetch("https://worker.test/health");
+    expect(res.status).toBe(401);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("includes CORS headers on a 404", async () => {
+    const res = await SELF.fetch("https://worker.test/nope", { headers: authedHeaders(TOKEN) });
+    expect(res.status).toBe(404);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+
+  it("includes CORS headers even when route() throws — a genuine server error shouldn't bypass withCors", async () => {
+    // A direct unit-level call (not through SELF/Miniflare's real D1) so a
+    // thrown DB error is cheap to force, exercising fetch()'s try/catch
+    // around route() without needing a real D1 failure scenario.
+    const throwingEnv: Env = {
+      DB: {
+        prepare: () => {
+          throw new Error("simulated D1 failure");
+        },
+      } as unknown as Env["DB"],
+      API_TOKEN: TOKEN,
+    };
+    const request = new Request("https://worker.test/state", { headers: authedHeaders(TOKEN) });
+    const res = await worker.fetch(request, throwingEnv);
+    expect(res.status).toBe(500);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+  });
+});
 
 describe("auth", () => {
   it("rejects requests with no token", async () => {
