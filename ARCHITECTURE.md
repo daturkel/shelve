@@ -77,6 +77,8 @@ CREATE TABLE entries (
 
 `position` at every level supports stable drag-and-drop ordering.
 The `default` workspace id is fixed (not a random UUID) — every fresh device auto-creates it before ever syncing, and a shared well-known id lets separate devices converge on that one record instead of ending up with two "Home" workspaces after their first sync.
+This only holds while that id's row is never deleted: since local auto-creation always stamps `updated_at` as "now," a fresh/wiped device can out-recency (and thus resurrect) an intentionally soft-deleted `default` row on its first merge — see [KNOWN_GAPS.md](KNOWN_GAPS.md).
+A workspace can be deleted from the UI (soft-delete, cascading to its folders and entries, restorable from the trash view) as long as at least one non-deleted workspace remains.
 
 The "open tabs" panel (browse currently-open tabs, drag into a folder) has no schema — it's rendered live from `chrome.tabs.query()` in the extension, not stored anywhere.
 
@@ -219,7 +221,15 @@ shelve/
     src/settings.ts            # settings/connect screen (no separate options page on web)
     public/_headers            # Cloudflare Pages CSP
     e2e/                       # Playwright smoke suite against a plain preview server
+  scripts/
+    wizard/                    # npm run setup / npm run upgrade — interactive deploy wizards, see README.md
+    bump-version.mjs           # dev-time version bump across every hand-duplicated location
+    release.mjs                # promotes CHANGELOG.md's Unreleased section, see RELEASING.md
   README.md
   ARCHITECTURE.md             # this file
+  MANUAL_SETUP.md              # step-by-step alternative to npm run setup/upgrade
+  KNOWN_GAPS.md
+  CHANGELOG.md
+  RELEASING.md
   LICENSE
 ```

@@ -19,7 +19,7 @@ No accounts system, no arbitrary size limits, and no third party (not even the d
 - **Browse and organize from any browser**, including your phone, via the web app — create/rename/delete/move folders and links, search, trash/restore. Drag-and-drop reordering isn't built for it yet (see [KNOWN_GAPS.md](KNOWN_GAPS.md)).
 - **Sync across your devices** through your own Worker + D1 backend.
   Last-write-wins on conflicts; deletes are soft (nothing is destroyed by a sync, ever — see [ARCHITECTURE.md](ARCHITECTURE.md) for why).
-- **Organize** with workspaces → folders → entries, drag-and-drop reordering (extension), rename, search, and collapsible folders.
+- **Organize** with workspaces → folders → entries — create, rename, delete (cascading, restorable from trash), and reorder at every level — plus search and collapsible folders. Drag-and-drop reordering is extension-only for now.
 - **Import/export your data** as a JSON backup, or migrate to/from Toby if you're coming from (or trying out) it.
 
 ## Status
