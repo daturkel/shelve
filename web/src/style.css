@@ -785,20 +785,28 @@ body {
 
   .toolbar {
     flex-wrap: wrap;
-    /* uiState.leftCollapsed defaults to false, so the drawer starts open
-     * on a fresh mobile visit — as a position: fixed overlay it would
-     * otherwise visually cover the toolbar's own ☰ button (both sit in
-     * the top-left corner), making it impossible to tap closed. Raising
-     * the toolbar above the drawer's z-index keeps ☰ clickable even
-     * while the drawer is open, rather than depending on the drawer
-     * happening to start below a hardcoded toolbar height. */
-    position: relative;
-    z-index: 101;
-    background: var(--bg);
   }
   .search-input {
     max-width: none;
     order: 10;
     flex-basis: 100%;
+  }
+
+  /* uiState.leftCollapsed defaults to false, so the drawer starts open on
+   * a fresh mobile visit — as a position: fixed overlay it would otherwise
+   * visually cover the toolbar's own ☰ button (both sit in the top-left
+   * corner), making it impossible to tap closed. Floating just the toggle
+   * in the top-right corner (well outside the drawer's own 240px-wide
+   * region) keeps it reachable without needing the whole toolbar above the
+   * drawer's z-index — that alternative made the toolbar's own opaque
+   * background cover the drawer's content instead (toolbar.ts only adds
+   * this class while the drawer is open, so it has no effect otherwise). */
+  .icon-btn-rail-open {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    z-index: 101;
+    background: var(--bg-raised);
+    border-radius: 6px;
   }
 }
