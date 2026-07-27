@@ -11,15 +11,22 @@ export class WizardAborted extends Error {}
 /**
  * @param {import("node:readline/promises").Interface} rl
  * @param {{description?: string, cmd: string, args?: string[], cwd?: string,
- *   capture?: boolean, stdinInput?: string}} opts
+ *   capture?: boolean, quiet?: boolean, stdinInput?: string}} opts
  *   `capture: true` tees stdout to the terminal while also returning it as a
  *   string, for the handful of calls the wizard needs to parse (a deploy
- *   URL, a generated database_id). `stdinInput` pipes a value into the
- *   child's stdin instead of inheriting the real terminal's stdin — used
- *   only for `wrangler secret put`, so the user never has to paste the
- *   generated API token by hand.
+ *   URL, a generated database_id). `quiet: true` (only meaningful alongside
+ *   `capture`) still captures the output for parsing but doesn't tee it to
+ *   the terminal — for `--json` calls whose raw output is a technical
+ *   fixture, not something a user should have to read; the caller prints
+ *   its own human-readable summary of whatever it parses out instead.
+ *   `stdinInput` pipes a value into the child's stdin instead of inheriting
+ *   the real terminal's stdin — used only for `wrangler secret put`, so the
+ *   user never has to paste the generated API token by hand.
  */
-export async function runCommand(rl, { description, cmd, args = [], cwd, capture = false, stdinInput = null }) {
+export async function runCommand(
+  rl,
+  { description, cmd, args = [], cwd, capture = false, quiet = false, stdinInput = null },
+) {
   if (description) step(description);
   console.log(dim(`$ ${[cmd, ...args].join(" ")}${cwd ? `  (in ${cwd})` : ""}`));
   const proceed = await confirm(rl, "Run this?", true);
@@ -37,7 +44,7 @@ export async function runCommand(rl, { description, cmd, args = [], cwd, capture
     if (capture) {
       child.stdout.on("data", (chunk) => {
         stdout += chunk;
-        process.stdout.write(chunk);
+        if (!quiet) process.stdout.write(chunk);
       });
     }
     if (stdinInput !== null) {
@@ -90,6 +97,7 @@ export async function ensurePagesProjectExists(rl, wrangler, initialProjectName)
       cmd: wrangler,
       args: ["pages", "project", "list", "--json"],
       capture: true,
+      quiet: true,
     });
 
     let existingProjects = [];
@@ -103,7 +111,11 @@ export async function ensurePagesProjectExists(rl, wrangler, initialProjectName)
       // interactive prompt.
     }
 
-    if (existingProjects.some((p) => p["Project Name"] === projectName)) return projectName;
+    if (existingProjects.some((p) => p["Project Name"] === projectName)) {
+      console.log(dim(`Found it — "${projectName}" already exists in your account.`));
+      return projectName;
+    }
+    console.log(dim(`Not found — "${projectName}" isn't one of your existing Pages projects yet.`));
 
     try {
       await runCommand(rl, {

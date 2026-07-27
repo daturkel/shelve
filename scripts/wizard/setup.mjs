@@ -73,6 +73,7 @@ async function setUpWorker(rl) {
     args: ["d1", "list", "--json"],
     cwd: workerDir,
     capture: true,
+    quiet: true,
   });
 
   let existingDbs = [];
@@ -108,6 +109,7 @@ async function setUpWorker(rl) {
       args: ["d1", "create", databaseName, "--json"],
       cwd: workerDir,
       capture: true,
+      quiet: true,
     });
     try {
       const jsonStart = createOut.indexOf("{");
@@ -117,6 +119,7 @@ async function setUpWorker(rl) {
       // falls through to the error below
     }
     if (!databaseId) throw new Error("Couldn't find database_id in `d1 create --json`'s output — check it above.");
+    ui.success(`Created database "${databaseName}" (id: ${databaseId}).`);
   }
 
   const workerName = await ask(rl, "Name for the Worker", existing?.name ?? "shelve-worker");
