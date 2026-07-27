@@ -14,7 +14,7 @@ flowchart LR
         UI --- Cache
     end
 
-    subgraph Web["Web app (optional)"]
+    subgraph Web["Web app"]
         direction TB
         WebUI["main.ts + settings.ts"]
         IDB[("IndexedDB<br/>(local cache)")]
