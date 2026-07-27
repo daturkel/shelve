@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-07-27
+
 ### Added
 
 - Unit tests for `lib/uiState.ts`, `lib/config.ts`, `lib/actions.ts`, and `lib/favicon.ts` (previously untested), plus new `lib/url.ts`, `lib/time.ts`, and `lib/backupFile.ts` modules extracted from DOM-heavy builder files (`newtab/folders.ts`, `newtab/toolbar.ts`, `options/main.ts`) so their pure logic is testable in isolation — no behavior change.
