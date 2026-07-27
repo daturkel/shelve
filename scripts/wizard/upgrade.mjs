@@ -108,7 +108,11 @@ async function upgradeWeb(rl) {
 
   ui.heading("Web app");
   const wrangler = wranglerBin(root);
-  await ensurePagesProjectExists(rl, wrangler, projectName);
+  // Also recovers if the adopted/stored name turns out to be wrong or
+  // unavailable (Pages project names are globally unique) — persists
+  // whatever name actually succeeds, in case it changed.
+  projectName = await ensurePagesProjectExists(rl, wrangler, projectName);
+  writeWizardConfig(root, { pagesProjectName: projectName });
 
   await runCommand(rl, {
     description: "Building the web app.",

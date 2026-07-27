@@ -3,8 +3,8 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { confirm } from "./prompt.mjs";
-import { dim, step } from "./style.mjs";
+import { ask, confirm } from "./prompt.mjs";
+import { dim, step, warn } from "./style.mjs";
 
 export class WizardAborted extends Error {}
 
@@ -71,30 +71,55 @@ export function wranglerBin(root) {
  * first time it's used against a name that doesn't exist yet — a prompt
  * that needs a real TTY on stdout, which piping stdout (to extract the
  * deployed URL afterward) breaks. Creating the project explicitly first,
- * whenever it isn't already there, means `pages deploy` never has to ask. */
-export async function ensurePagesProjectExists(rl, wrangler, projectName) {
-  const { stdout: listOut } = await runCommand(rl, {
-    description: `Checking whether the Cloudflare Pages project "${projectName}" already exists.`,
-    cmd: wrangler,
-    args: ["pages", "project", "list", "--json"],
-    capture: true,
-  });
+ * whenever it isn't already there, means `pages deploy` never has to ask.
+ *
+ * Pages project names are unique across *every* Cloudflare account, not
+ * just the current one, so creation can fail purely because someone else
+ * already has that name — not a bug in the wizard, not something a retry
+ * of the same name would ever fix. Rather than crash the whole wizard on
+ * that (previously: a generic "exited with code 1" with no recovery short
+ * of starting over), this loops: on any creation failure, ask for a
+ * different name and try again. Returns the project name that actually
+ * succeeded, which may differ from the one passed in. */
+export async function ensurePagesProjectExists(rl, wrangler, initialProjectName) {
+  let projectName = initialProjectName;
 
-  let existingProjects = [];
-  try {
-    const jsonStart = listOut.indexOf("[");
-    existingProjects = jsonStart === -1 ? [] : JSON.parse(listOut.slice(jsonStart));
-  } catch {
-    // Falls through and attempts a create below — `pages project create`
-    // on an already-existing name just errors clearly, which is safer than
-    // silently assuming it doesn't exist and hitting the interactive prompt.
+  while (true) {
+    const { stdout: listOut } = await runCommand(rl, {
+      description: `Checking whether the Cloudflare Pages project "${projectName}" already exists.`,
+      cmd: wrangler,
+      args: ["pages", "project", "list", "--json"],
+      capture: true,
+    });
+
+    let existingProjects = [];
+    try {
+      const jsonStart = listOut.indexOf("[");
+      existingProjects = jsonStart === -1 ? [] : JSON.parse(listOut.slice(jsonStart));
+    } catch {
+      // Falls through and attempts a create below — `pages project create`
+      // on an already-existing name just errors clearly, which is safer
+      // than silently assuming it doesn't exist and hitting the
+      // interactive prompt.
+    }
+
+    if (existingProjects.some((p) => p["Project Name"] === projectName)) return projectName;
+
+    try {
+      await runCommand(rl, {
+        description: `Creating Cloudflare Pages project "${projectName}".`,
+        cmd: wrangler,
+        args: ["pages", "project", "create", projectName, "--production-branch", "main"],
+      });
+      return projectName;
+    } catch (e) {
+      if (e instanceof WizardAborted) throw e; // declining to run it should abort, not retry
+      warn(
+        `Couldn't create project "${projectName}" — the name may already be taken by another Cloudflare account (Pages project names are globally unique, not just within your account).`,
+      );
+      let retryName = "";
+      while (!retryName) retryName = await ask(rl, "Try a different Cloudflare Pages project name");
+      projectName = retryName;
+    }
   }
-
-  if (existingProjects.some((p) => p["Project Name"] === projectName)) return;
-
-  await runCommand(rl, {
-    description: `Creating Cloudflare Pages project "${projectName}".`,
-    cmd: wrangler,
-    args: ["pages", "project", "create", projectName, "--production-branch", "main"],
-  });
 }

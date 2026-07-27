@@ -15,6 +15,7 @@ import { ask, confirm, select } from "./lib/prompt.mjs";
 import { ensurePagesProjectExists, runCommand, wranglerBin, WizardAborted } from "./lib/exec.mjs";
 import { readWranglerToml, writeWranglerToml } from "./lib/wranglerToml.mjs";
 import { readWizardConfig, writeWizardConfig } from "./lib/wizardConfig.mjs";
+import { randomProjectName } from "./lib/randomName.mjs";
 import * as ui from "./lib/style.mjs";
 
 const root = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
@@ -214,10 +215,19 @@ async function setUpWeb(rl) {
 
   ui.heading("Web app");
   const wizardConfig = readWizardConfig(root);
-  const projectName = await ask(rl, "Cloudflare Pages project name", wizardConfig.pagesProjectName ?? "shelve-web");
+  // Pages project names are unique across every Cloudflare account, not
+  // just yours — a random suggestion here is just a starting point, not a
+  // guess likely to already be taken the way a fixed one (e.g. the
+  // project's own "shelve-web") would be.
+  const suggestedName = wizardConfig.pagesProjectName ?? randomProjectName();
+  const requestedName = await ask(
+    rl,
+    "Cloudflare Pages project name (must be globally unique across all Cloudflare accounts)",
+    suggestedName,
+  );
   const wrangler = wranglerBin(root);
 
-  await ensurePagesProjectExists(rl, wrangler, projectName);
+  const projectName = await ensurePagesProjectExists(rl, wrangler, requestedName);
 
   await runCommand(rl, {
     description: "Building the web app.",
