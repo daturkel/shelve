@@ -43,16 +43,30 @@ export async function saveState(state: State): Promise<void> {
 
 export function createWorkspace(state: State, name: string): Workspace {
   const now = Date.now();
+  const position = state.workspaces.filter((w) => w.deleted_at === null).length;
   const workspace: Workspace = {
     id: crypto.randomUUID(),
     name,
-    position: state.workspaces.length,
+    position,
     created_at: now,
     updated_at: now,
     deleted_at: null,
   };
   state.workspaces.push(workspace);
   return workspace;
+}
+
+/** Picks a sensible default active workspace: the first non-deleted one by
+ * display order (position), not array insertion order. Array order reflects
+ * merge/sync history — a workspace created locally before a device's first
+ * sync stays at index 0 even after merging in others that should display
+ * first — not what a user would expect to land on. Falls back to "" if
+ * every workspace is somehow deleted (shouldn't happen once deleteWorkspace's
+ * last-workspace guard is in place, but this can run before that guard ever
+ * has a chance to, e.g. on initial load of an already-corrupted state). */
+export function pickDefaultWorkspaceId(state: State): string {
+  const sorted = state.workspaces.filter((w) => w.deleted_at === null).sort((a, b) => a.position - b.position);
+  return sorted[0]?.id ?? "";
 }
 
 export function renameWorkspace(state: State, workspaceId: string, name: string): Workspace {
@@ -123,6 +137,96 @@ export function deleteFolder(state: State, folderId: string): { folder: Folder; 
   return { folder, entries };
 }
 
+/** Soft-delete: see deleteFolder for why. Cascades to every folder in the
+ * workspace and every entry in those folders, same as deleteFolder cascades
+ * to entries one level down — done directly here rather than by calling
+ * deleteFolder per-folder, so there's one flat set of changed folders/
+ * entries to push instead of a list of tuples to flatten. Refuses to
+ * delete the last remaining workspace — nothing in the UI expects a
+ * workspace-less state, so this throws rather than allow it. */
+export function deleteWorkspace(
+  state: State,
+  workspaceId: string,
+): { workspace: Workspace; folders: Folder[]; entries: Entry[] } {
+  const remaining = state.workspaces.filter((w) => w.deleted_at === null && w.id !== workspaceId);
+  if (remaining.length === 0) {
+    throw new Error("Can't delete the last remaining workspace.");
+  }
+
+  const now = Date.now();
+  const workspace = state.workspaces.find((w) => w.id === workspaceId)!;
+  workspace.deleted_at = now;
+  workspace.updated_at = now;
+
+  const folders = state.folders.filter((f) => f.workspace_id === workspaceId && f.deleted_at === null);
+  const folderIds = new Set(folders.map((f) => f.id));
+  const entries = state.entries.filter((e) => folderIds.has(e.folder_id) && e.deleted_at === null);
+  for (const folder of folders) {
+    folder.deleted_at = now;
+    folder.updated_at = now;
+  }
+  for (const entry of entries) {
+    entry.deleted_at = now;
+    entry.updated_at = now;
+  }
+
+  return { workspace, folders, entries };
+}
+
+/** Restores a soft-deleted workspace, cascading back every folder and
+ * entry currently in the trash underneath it — same "restore everything
+ * currently missing" semantics as restoreFolder, one level up. Lands at
+ * the end of the workspace list like a freshly created one. */
+export function restoreWorkspace(
+  state: State,
+  workspaceId: string,
+): { workspace: Workspace; folders: Folder[]; entries: Entry[] } {
+  const now = Date.now();
+  const workspace = state.workspaces.find((w) => w.id === workspaceId)!;
+  workspace.deleted_at = null;
+  workspace.updated_at = now;
+  workspace.position = state.workspaces.filter((w) => w.id !== workspace.id && w.deleted_at === null).length;
+
+  const folders = state.folders.filter((f) => f.workspace_id === workspaceId && f.deleted_at !== null);
+  let nextFolderPosition = state.folders.filter((f) => f.workspace_id === workspaceId && f.deleted_at === null).length;
+  const folderIds = new Set(folders.map((f) => f.id));
+  for (const folder of folders) {
+    folder.deleted_at = null;
+    folder.updated_at = now;
+    folder.position = nextFolderPosition++;
+  }
+
+  const entries = state.entries.filter((e) => folderIds.has(e.folder_id) && e.deleted_at !== null);
+  const nextEntryPosition = new Map<string, number>();
+  for (const entry of entries) {
+    entry.deleted_at = null;
+    entry.updated_at = now;
+    const next =
+      nextEntryPosition.get(entry.folder_id) ??
+      state.entries.filter((e) => e.folder_id === entry.folder_id && e.id !== entry.id && e.deleted_at === null).length;
+    entry.position = next;
+    nextEntryPosition.set(entry.folder_id, next + 1);
+  }
+
+  return { workspace, folders, entries };
+}
+
+/** If a workspace is currently soft-deleted, restores it (same "land at
+ * the end of the list" positioning as restoreWorkspace) and returns it;
+ * otherwise returns null. Shared by restoreFolder/restoreEntry so a folder
+ * or entry being restored never ends up back in a workspace nothing can
+ * reach — same reasoning as restoreEntry restoring its folder. */
+function restoreWorkspaceIfDeleted(state: State, workspaceId: string): Workspace | null {
+  const workspace = state.workspaces.find((w) => w.id === workspaceId);
+  if (!workspace || workspace.deleted_at === null) return null;
+
+  const now = Date.now();
+  workspace.deleted_at = null;
+  workspace.updated_at = now;
+  workspace.position = state.workspaces.filter((w) => w.id !== workspace.id && w.deleted_at === null).length;
+  return workspace;
+}
+
 /** Restores a soft-deleted folder, cascading back every entry of its
  * currently in the trash — not just ones deleted in the same operation
  * as the folder (deleteFolder's shared `now` isn't a reliable enough
@@ -130,15 +234,22 @@ export function deleteFolder(state: State, folderId: string): { folder: Folder; 
  * 1ms resolution: two separate deletes landing in the same millisecond
  * is entirely plausible, not just a test artifact). Restoring a folder
  * meaning "bring back everything currently missing from it" is simpler
- * and avoids that fragility.
+ * and avoids that fragility. Also restores the folder's workspace if that's
+ * currently deleted too, for the same reason restoreEntry restores its
+ * folder — see restoreWorkspaceIfDeleted.
  *
- * Both the folder and its restored entries land at the end of their
+ * The folder and its restored entries land at the end of their
  * respective lists (like a freshly created one) rather than keeping
  * their old position — other items may well have taken those positions
  * since, and a stale position risks colliding with one still in use. */
-export function restoreFolder(state: State, folderId: string): { folder: Folder; entries: Entry[] } {
+export function restoreFolder(
+  state: State,
+  folderId: string,
+): { folder: Folder; entries: Entry[]; restoredWorkspace: Workspace | null } {
   const now = Date.now();
   const folder = state.folders.find((f) => f.id === folderId)!;
+  const restoredWorkspace = restoreWorkspaceIfDeleted(state, folder.workspace_id);
+
   folder.deleted_at = null;
   folder.updated_at = now;
   folder.position = state.folders.filter(
@@ -153,16 +264,20 @@ export function restoreFolder(state: State, folderId: string): { folder: Folder;
     entry.position = nextPosition++;
   }
 
-  return { folder, entries };
+  return { folder, entries, restoredWorkspace };
 }
 
 /** Restores a soft-deleted entry. If its folder is also currently in the
- * trash, restores that folder too rather than leaving the entry orphaned
- * in a folder no view can reach, or fabricating a duplicate folder — same
- * id is preserved, and any other entries that were deleted independently
- * stay in the trash untouched. Both land at the end of their respective
- * lists rather than a stale old position — see restoreFolder for why. */
-export function restoreEntry(state: State, entryId: string): { entry: Entry; restoredFolder: Folder | null } {
+ * trash, restores that folder too (and that folder's workspace, if it's
+ * also deleted) rather than leaving the entry orphaned in a place no view
+ * can reach, or fabricating a duplicate folder/workspace — same id is
+ * preserved, and any other entries that were deleted independently stay in
+ * the trash untouched. All land at the end of their respective lists
+ * rather than a stale old position — see restoreFolder for why. */
+export function restoreEntry(
+  state: State,
+  entryId: string,
+): { entry: Entry; restoredFolder: Folder | null; restoredWorkspace: Workspace | null } {
   const now = Date.now();
   const entry = state.entries.find((e) => e.id === entryId)!;
   entry.deleted_at = null;
@@ -170,6 +285,8 @@ export function restoreEntry(state: State, entryId: string): { entry: Entry; res
 
   const folder = state.folders.find((f) => f.id === entry.folder_id) ?? null;
   let restoredFolder: Folder | null = null;
+  let restoredWorkspace: Workspace | null = null;
+  if (folder) restoredWorkspace = restoreWorkspaceIfDeleted(state, folder.workspace_id);
   if (folder && folder.deleted_at !== null) {
     folder.deleted_at = null;
     folder.updated_at = now;
@@ -183,7 +300,7 @@ export function restoreEntry(state: State, entryId: string): { entry: Entry; res
     (e) => e.folder_id === entry.folder_id && e.id !== entry.id && e.deleted_at === null,
   ).length;
 
-  return { entry, restoredFolder };
+  return { entry, restoredFolder, restoredWorkspace };
 }
 
 export interface NewEntryData {

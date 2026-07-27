@@ -4,6 +4,9 @@ import {
   loadState,
   createWorkspace,
   renameWorkspace,
+  deleteWorkspace,
+  restoreWorkspace,
+  pickDefaultWorkspaceId,
   createFolder,
   renameFolder,
   reorderFolders,
@@ -256,7 +259,143 @@ describe("restoreEntry", () => {
 
     expect(result.entry.deleted_at).toBeNull();
     expect(result.restoredFolder?.id).toBe(folder.id);
+    expect(result.restoredWorkspace).toBeNull();
     expect(state.folders.find((f) => f.id === folder.id)!.deleted_at).toBeNull();
+  });
+
+  it("also restores the folder's workspace when that's in the trash too", () => {
+    const state = emptyState();
+    const other = createWorkspace(state, "keeps app from being workspace-less");
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "A");
+    const entry = createEntry(state, folder.id, { url: "https://example.com" });
+    deleteFolder(state, folder.id);
+    deleteWorkspace(state, ws.id);
+    void other;
+
+    const result = restoreEntry(state, entry.id);
+
+    expect(result.restoredFolder?.id).toBe(folder.id);
+    expect(result.restoredWorkspace?.id).toBe(ws.id);
+    expect(state.workspaces.find((w) => w.id === ws.id)!.deleted_at).toBeNull();
+  });
+});
+
+describe("deleteWorkspace", () => {
+  it("soft-deletes the workspace and cascades to its non-deleted folders and entries", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const otherWs = createWorkspace(state, "B");
+    const folder = createFolder(state, ws.id, "Folder A");
+    const entry = createEntry(state, folder.id, { url: "https://a.example" });
+    const unrelatedFolder = createFolder(state, otherWs.id, "Folder B");
+
+    const result = deleteWorkspace(state, ws.id);
+
+    expect(result.workspace.deleted_at).not.toBeNull();
+    expect(result.folders.map((f) => f.id)).toEqual([folder.id]);
+    expect(result.entries.map((e) => e.id)).toEqual([entry.id]);
+    expect(state.folders.find((f) => f.id === folder.id)!.deleted_at).not.toBeNull();
+    expect(state.entries.find((e) => e.id === entry.id)!.deleted_at).not.toBeNull();
+    expect(state.folders.find((f) => f.id === unrelatedFolder.id)!.deleted_at).toBeNull();
+  });
+
+  it("does not re-cascade to folders/entries that were already deleted", () => {
+    const state = emptyState();
+    const other = createWorkspace(state, "keeps app from being workspace-less");
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "A");
+    deleteFolder(state, folder.id);
+    void other;
+
+    const result = deleteWorkspace(state, ws.id);
+
+    expect(result.folders).toHaveLength(0);
+    expect(result.entries).toHaveLength(0);
+  });
+
+  it("refuses to delete the last remaining workspace", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "Only one");
+
+    expect(() => deleteWorkspace(state, ws.id)).toThrow();
+    expect(state.workspaces.find((w) => w.id === ws.id)!.deleted_at).toBeNull();
+  });
+
+  it("allows deleting a workspace when another non-deleted one remains", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    createWorkspace(state, "B");
+
+    expect(() => deleteWorkspace(state, ws.id)).not.toThrow();
+  });
+});
+
+describe("restoreWorkspace", () => {
+  it("restores the workspace and cascades back every folder/entry still in its trash", () => {
+    const state = emptyState();
+    const other = createWorkspace(state, "keeps app from being workspace-less");
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "Folder A");
+    const entry = createEntry(state, folder.id, { url: "https://a.example" });
+    const deletedEarlier = createEntry(state, folder.id, { url: "https://b.example" });
+    deleteEntry(state, deletedEarlier.id);
+    deleteWorkspace(state, ws.id);
+    void other;
+
+    const result = restoreWorkspace(state, ws.id);
+
+    expect(result.workspace.deleted_at).toBeNull();
+    expect(result.folders.map((f) => f.id)).toEqual([folder.id]);
+    expect(result.entries.map((e) => e.id).sort()).toEqual([entry.id, deletedEarlier.id].sort());
+    expect(state.folders.find((f) => f.id === folder.id)!.deleted_at).toBeNull();
+    expect(state.entries.find((e) => e.id === entry.id)!.deleted_at).toBeNull();
+    expect(state.entries.find((e) => e.id === deletedEarlier.id)!.deleted_at).toBeNull();
+  });
+
+  it("assigns distinct positions to multiple restored folders/entries in the same workspace", () => {
+    const state = emptyState();
+    const other = createWorkspace(state, "keeps app from being workspace-less");
+    const ws = createWorkspace(state, "A");
+    const folderA = createFolder(state, ws.id, "A");
+    const folderB = createFolder(state, ws.id, "B");
+    const entryA = createEntry(state, folderA.id, { url: "https://a.example" });
+    const entryB = createEntry(state, folderA.id, { url: "https://b.example" });
+    deleteWorkspace(state, ws.id);
+    void other;
+    void folderB;
+
+    const result = restoreWorkspace(state, ws.id);
+
+    expect(result.folders.map((f) => f.position).sort()).toEqual([0, 1]);
+    expect([entryA, entryB].map((e) => state.entries.find((se) => se.id === e.id)!.position).sort()).toEqual([0, 1]);
+  });
+});
+
+describe("pickDefaultWorkspaceId", () => {
+  it("picks the first non-deleted workspace by position, not array order", () => {
+    const state = emptyState();
+    // Simulates a merge where a locally-created workspace (array index 0)
+    // isn't the one that should display first.
+    const second = createWorkspace(state, "Second");
+    const first = createWorkspace(state, "First");
+    first.position = 0;
+    second.position = 1;
+
+    expect(pickDefaultWorkspaceId(state)).toBe(first.id);
+  });
+
+  it("skips deleted workspaces", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const other = createWorkspace(state, "B");
+    deleteWorkspace(state, ws.id);
+
+    expect(pickDefaultWorkspaceId(state)).toBe(other.id);
+  });
+
+  it("returns an empty string when there are no workspaces at all", () => {
+    expect(pickDefaultWorkspaceId(emptyState())).toBe("");
   });
 });
 

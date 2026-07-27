@@ -47,17 +47,41 @@ body {
 }
 
 .rail-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
   padding: 6px 8px;
   border-radius: 6px;
   cursor: pointer;
   color: var(--text-dim);
-  white-space: nowrap;
 }
 .rail-item:hover {
   background: var(--bg-hover);
 }
 .rail-item.active {
   background: var(--bg-hover);
+  color: var(--text);
+}
+
+.rail-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-item-delete {
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  visibility: hidden;
+  flex-shrink: 0;
+}
+.rail-item:hover .rail-item-delete {
+  visibility: visible;
+}
+.rail-item-delete:hover {
   color: var(--text);
 }
 
@@ -745,7 +769,10 @@ body {
     inset: 0 auto 0 0;
     z-index: 100;
     width: 240px;
-    padding: 12px 8px;
+    /* Extra top padding reserves a strip for the floating close toggle
+     * below (.icon-btn-rail-open) so it never overlaps the first
+     * workspace row. */
+    padding: 44px 8px 12px;
     border-right: 1px solid var(--border);
     box-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
     transition: transform 0.15s ease;
@@ -753,7 +780,6 @@ body {
   }
   .rail.collapsed {
     width: 240px;
-    padding: 12px 8px;
     overflow-y: auto;
     border-right: 1px solid var(--border);
     transform: translateX(-100%);
@@ -761,20 +787,30 @@ body {
 
   .toolbar {
     flex-wrap: wrap;
-    /* uiState.leftCollapsed defaults to false, so the drawer starts open
-     * on a fresh mobile visit — as a position: fixed overlay it would
-     * otherwise visually cover the toolbar's own ☰ button (both sit in
-     * the top-left corner), making it impossible to tap closed. Raising
-     * the toolbar above the drawer's z-index keeps ☰ clickable even
-     * while the drawer is open, rather than depending on the drawer
-     * happening to start below a hardcoded toolbar height. */
-    position: relative;
-    z-index: 101;
-    background: var(--bg);
   }
   .search-input {
     max-width: none;
     order: 10;
     flex-basis: 100%;
+  }
+
+  /* uiState.leftCollapsed defaults to false, so the drawer starts open on
+   * a fresh mobile visit — as a position: fixed overlay it would otherwise
+   * visually cover the toolbar's own ☰ button (both sit in the top-left
+   * corner), making it impossible to tap closed. The toolbar's other
+   * icons (settings gear, sync dot) live in the ~150px sliver of screen
+   * to the right of the 240px-wide drawer — floating the toggle inside
+   * the drawer's own bounds (top-left, in the padding strip reserved
+   * above) keeps it reachable without ever landing on top of them, unlike
+   * floating it top-right where it collided with the settings gear.
+   * (toolbar.ts only adds this class while the drawer is open, so it has
+   * no effect otherwise.) */
+  .icon-btn-rail-open {
+    position: fixed;
+    top: 8px;
+    left: 8px;
+    z-index: 101;
+    background: var(--bg-raised);
+    border-radius: 6px;
   }
 }

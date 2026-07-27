@@ -116,7 +116,17 @@ export interface WorkerHealth {
 export async function fetchWorkerHealth(): Promise<WorkerHealth | null> {
   const res = await apiFetch("/health");
   if (!res || !res.ok) return null;
-  return (await res.json()) as WorkerHealth;
+  // A misconfigured Worker URL (e.g. missing its http(s) scheme) can
+  // resolve to some other server entirely — one that responds 200 with a
+  // non-JSON body (an HTML page, for instance) rather than failing
+  // outright. res.json() would throw uncaught in that case; treat it the
+  // same as any other unreachable-Worker failure instead.
+  try {
+    return (await res.json()) as WorkerHealth;
+  } catch (e) {
+    console.error("shelve sync: /health returned a non-JSON response", e);
+    return null;
+  }
 }
 
 export function isWorkerSchemaCompatible(health: WorkerHealth): boolean {
@@ -162,7 +172,13 @@ export async function pushDelete(kind: ResourceKind, id: string): Promise<void> 
 export async function fetchRemoteState(): Promise<RemoteState | null> {
   const res = await apiFetch("/state");
   if (!res || !res.ok) return null;
-  return (await res.json()) as RemoteState;
+  // See fetchWorkerHealth for why this can't assume a JSON body.
+  try {
+    return (await res.json()) as RemoteState;
+  } catch (e) {
+    console.error("shelve sync: /state returned a non-JSON response", e);
+    return null;
+  }
 }
 
 /** Pull the full remote snapshot and merge it into local state. Returns

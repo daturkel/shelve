@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mergeArray, mergeState, fetchWorkerHealth, isWorkerSchemaCompatible } from "./sync";
+import { mergeArray, mergeState, fetchWorkerHealth, fetchRemoteState, isWorkerSchemaCompatible } from "./sync";
 import type { State } from "./storage";
 import { SCHEMA_VERSION, type Workspace } from "@shelve/shared";
 
@@ -130,6 +130,40 @@ describe("fetchWorkerHealth", () => {
     await installConfigMock({ workerUrl: "https://worker.test", apiToken: "tok" });
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, json: async () => ({}) } as Response));
     expect(await fetchWorkerHealth()).toBeNull();
+  });
+
+  it("returns null (rather than throwing) when a 200 response body isn't valid JSON", async () => {
+    // The exact failure mode a misconfigured Worker URL (e.g. missing its
+    // http(s) scheme) can produce: the request resolves to some other
+    // server entirely, one that happens to respond 200 with an HTML body
+    // instead of failing outright.
+    await installConfigMock({ workerUrl: "https://worker.test", apiToken: "tok" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => {
+          throw new SyntaxError("Unexpected token < in JSON");
+        },
+      } as unknown as Response),
+    );
+    await expect(fetchWorkerHealth()).resolves.toBeNull();
+  });
+});
+
+describe("fetchRemoteState", () => {
+  it("returns null (rather than throwing) when a 200 response body isn't valid JSON", async () => {
+    await installConfigMock({ workerUrl: "https://worker.test", apiToken: "tok" });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => {
+          throw new SyntaxError("Unexpected token < in JSON");
+        },
+      } as unknown as Response),
+    );
+    await expect(fetchRemoteState()).resolves.toBeNull();
   });
 });
 

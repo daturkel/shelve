@@ -10,7 +10,11 @@ export function buildToolbar(ctx: AppContext): HTMLElement {
   toolbar.className = "toolbar";
 
   const railToggle = document.createElement("button");
-  railToggle.className = "icon-btn";
+  // The extra class is a no-op everywhere except web's mobile drawer layout
+  // (see web/src/style.css) — it floats the toggle above the open drawer so
+  // it's always reachable to close it, without needing the rest of the
+  // toolbar to sit above (and visually cover) the drawer's own content.
+  railToggle.className = "icon-btn" + (ctx.uiState.leftCollapsed ? "" : " icon-btn-rail-open");
   railToggle.textContent = "☰";
   railToggle.title = "Toggle workspaces";
   railToggle.onclick = async () => {

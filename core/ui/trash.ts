@@ -1,11 +1,12 @@
-import { restoreFolder, restoreEntry } from "../lib/storage";
+import { restoreFolder, restoreEntry, restoreWorkspace } from "../lib/storage";
 import { pushResource } from "../lib/sync";
 import { buildFaviconEl } from "../lib/favicon";
 import type { AppContext } from "./context";
 
-// ---------- Trash: a flat, global list of deleted folders and entries ----------
+// ---------- Trash: a flat, global list of deleted workspaces, folders, and entries ----------
 
 type TrashItem =
+  | { kind: "workspace"; id: string; name: string; deletedAt: number }
   | { kind: "folder"; id: string; name: string; deletedAt: number }
   | { kind: "entry"; id: string; name: string; deletedAt: number; faviconUrl: string | null };
 
@@ -19,6 +20,14 @@ export function buildTrash(ctx: AppContext): HTMLElement {
   container.appendChild(heading);
 
   const items: TrashItem[] = [
+    ...ctx.state.workspaces
+      .filter((w) => w.deleted_at !== null)
+      .map((w) => ({
+        kind: "workspace" as const,
+        id: w.id,
+        name: w.name || "Untitled workspace",
+        deletedAt: w.deleted_at!,
+      })),
     ...ctx.state.folders
       .filter((f) => f.deleted_at !== null)
       .map((f) => ({ kind: "folder" as const, id: f.id, name: f.name || "Untitled folder", deletedAt: f.deleted_at! })),
@@ -55,13 +64,13 @@ function buildTrashItemEl(ctx: AppContext, item: TrashItem): HTMLElement {
   const row = document.createElement("div");
   row.className = "trash-item";
 
-  if (item.kind === "folder") {
+  if (item.kind === "workspace" || item.kind === "folder") {
     // A text badge rather than a glyph — a generic shape like ▢ reads as
     // just an empty box, easy to mistake for the same placeholder square
     // shown for an entry with no favicon. Plain text says what it is.
     const badge = document.createElement("div");
     badge.className = "trash-folder-badge";
-    badge.textContent = "Folder";
+    badge.textContent = item.kind === "workspace" ? "Workspace" : "Folder";
     row.appendChild(badge);
   } else {
     row.appendChild(buildFaviconEl(item.faviconUrl));
@@ -81,16 +90,24 @@ function buildTrashItemEl(ctx: AppContext, item: TrashItem): HTMLElement {
   restoreBtn.className = "trash-restore-btn";
   restoreBtn.textContent = "Restore";
   restoreBtn.onclick = async () => {
-    if (item.kind === "folder") {
-      const { folder, entries } = restoreFolder(ctx.state, item.id);
+    if (item.kind === "workspace") {
+      const { workspace, folders, entries } = restoreWorkspace(ctx.state, item.id);
+      await ctx.rerender();
+      void pushResource("workspaces", workspace);
+      for (const folder of folders) void pushResource("folders", folder);
+      for (const entry of entries) void pushResource("entries", entry);
+    } else if (item.kind === "folder") {
+      const { folder, entries, restoredWorkspace } = restoreFolder(ctx.state, item.id);
       await ctx.rerender();
       void pushResource("folders", folder);
       for (const entry of entries) void pushResource("entries", entry);
+      if (restoredWorkspace) void pushResource("workspaces", restoredWorkspace);
     } else {
-      const { entry, restoredFolder } = restoreEntry(ctx.state, item.id);
+      const { entry, restoredFolder, restoredWorkspace } = restoreEntry(ctx.state, item.id);
       await ctx.rerender();
       void pushResource("entries", entry);
       if (restoredFolder) void pushResource("folders", restoredFolder);
+      if (restoredWorkspace) void pushResource("workspaces", restoredWorkspace);
     }
   };
   row.appendChild(restoreBtn);

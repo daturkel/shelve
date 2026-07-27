@@ -1,6 +1,6 @@
-import { createWorkspace, renameWorkspace } from "../lib/storage";
-import { pushResource } from "../lib/sync";
-import { showPrompt } from "../lib/modal";
+import { createWorkspace, renameWorkspace, deleteWorkspace, pickDefaultWorkspaceId } from "../lib/storage";
+import { pushResource, pushDelete } from "../lib/sync";
+import { showPrompt, showConfirm } from "../lib/modal";
 import type { AppContext } from "./context";
 
 // ---------- Left rail: workspace switcher ----------
@@ -16,7 +16,6 @@ export function buildRail(ctx: AppContext): HTMLElement {
   for (const ws of workspaces) {
     const item = document.createElement("div");
     item.className = "rail-item" + (ws.id === ctx.activeWorkspaceId ? " active" : "");
-    item.textContent = ws.name;
     item.title = "Double-click to rename";
     item.onclick = () => {
       ctx.activeWorkspaceId = ws.id;
@@ -31,6 +30,36 @@ export function buildRail(ctx: AppContext): HTMLElement {
       await ctx.rerender();
       void pushResource("workspaces", ws);
     };
+
+    const label = document.createElement("span");
+    label.className = "rail-item-label";
+    label.textContent = ws.name;
+    item.appendChild(label);
+
+    // Hidden whenever it's the last remaining workspace — nothing in the
+    // UI expects (or can recover from) a workspace-less state, matching
+    // deleteWorkspace's own refusal to allow it at the data layer.
+    if (workspaces.length > 1) {
+      const del = document.createElement("span");
+      del.className = "rail-item-delete";
+      del.textContent = "×";
+      del.title = "Delete workspace and everything in it";
+      del.onclick = async (ev) => {
+        ev.stopPropagation();
+        const ok = await showConfirm(`Delete workspace "${ws.name}" and everything in it?`);
+        if (!ok) return;
+        const { workspace, folders, entries } = deleteWorkspace(ctx.state, ws.id);
+        if (ctx.activeWorkspaceId === ws.id) {
+          ctx.activeWorkspaceId = pickDefaultWorkspaceId(ctx.state);
+        }
+        await ctx.rerender();
+        void pushDelete("workspaces", workspace.id);
+        for (const folder of folders) void pushDelete("folders", folder.id);
+        for (const entry of entries) void pushDelete("entries", entry.id);
+      };
+      item.appendChild(del);
+    }
+
     rail.appendChild(item);
   }
 
