@@ -246,10 +246,14 @@ body {
 }
 .trash-item-expand-toggle {
   flex-shrink: 0;
-  width: 14px;
+  width: 22px;
   color: var(--text-dim);
   cursor: pointer;
+  font-size: 26px;
   text-align: center;
+  line-height: 1;
+  position: relative;
+  top: -3px;
 }
 .trash-item-expand-toggle:hover {
   color: var(--text);
