@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-07-28
+
 ### Added
 
 - Permanently delete from Trash — per-item ("Delete forever"), multi-select, and "Empty trash" — cascading to everything under a permanently-deleted workspace/folder via a new `folders.workspace_id`/`entries.folder_id ON DELETE CASCADE` (`worker/migrations/0003_cascade_delete.sql`, `SCHEMA_VERSION` 2 → 3), so a single request removes an entire subtree atomically rather than the client having to compute and order a multi-request cascade itself. Only ever valid on an already-soft-deleted record — the Worker enforces this server-side too, as a backstop. The trash view now groups a deleted workspace/folder's still-trashed descendants into one collapsible row ("Folder X — N items") instead of listing every one individually, to avoid flooding the view; expanding shows each descendant individually, still restorable/permanently-deletable on its own.
