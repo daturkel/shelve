@@ -36,6 +36,19 @@ export interface AppContext {
    * not scoped to one — same rationale as selectedTabIds being global
    * across windows. Transient, not persisted. */
   selectedEntryIds: Set<string>;
+  /** Composite `"<kind>:<id>"` keys of trash rows currently checked for a
+   * multi-select action (restore, permanently delete). Checking a group
+   * row (a trashed workspace/folder) adds its current descendants' keys
+   * too, so the Set stays the single source of truth for "is this
+   * selected" with no separately-computed ancestor-coverage logic.
+   * Transient, not persisted. */
+  selectedTrashIds: Set<string>;
+  /** Composite `"<kind>:<id>"` keys of trash group rows (trashed
+   * workspaces/folders with descendants still in the trash) currently
+   * expanded to show those descendants. Exploratory browsing state, not
+   * an organizational preference — transient like the above, not
+   * persisted the way `uiState.collapsedFolderIds` is. */
+  expandedTrashGroupIds: Set<string>;
   /** Re-render from current in-memory state, without persisting. */
   render: () => void;
   /** Persist state, then re-render. */

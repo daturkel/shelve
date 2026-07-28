@@ -165,6 +165,17 @@ export async function pushDelete(kind: ResourceKind, id: string): Promise<void> 
   await apiFetch(`/${kind}/${id}`, { method: "DELETE" });
 }
 
+/** Permanently deletes an already-soft-deleted resource — only valid on a
+ * record with deleted_at already set (the Worker enforces this too, as a
+ * backstop). Unlike pushDelete's soft-delete, this cascades server-side:
+ * `folders.workspace_id`/`entries.folder_id` both have `ON DELETE CASCADE`
+ * (see worker/migrations/0003_cascade_delete.sql), so a single call on a
+ * workspace or folder removes everything under it in one request — the
+ * caller never needs to separately push-permanent-delete each descendant. */
+export async function pushPermanentDelete(kind: ResourceKind, id: string): Promise<void> {
+  await apiFetch(`/${kind}/${id}?permanent=true`, { method: "DELETE" });
+}
+
 /** Fetch the raw remote snapshot with no merge into local state — used for
  * a standalone connectivity check (e.g. the options page confirming a
  * Worker URL/token actually works before the user ever opens the newtab

@@ -42,4 +42,4 @@ export type ResourceKind = "workspaces" | "folders" | "entries";
  * GET /health, and refuses to sync (rather than risk silently losing
  * data on a merge against columns the Worker doesn't have yet) if the
  * Worker is behind. See README.md's "Upgrading" section. */
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;

@@ -47,6 +47,8 @@ const ctx: AppContext = {
   showTrash: false,
   selectedTabIds: new Set(),
   selectedEntryIds: new Set(),
+  selectedTrashIds: new Set(),
+  expandedTrashGroupIds: new Set(),
   render,
   rerender,
   persistUiState,

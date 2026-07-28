@@ -12,6 +12,9 @@ import {
   reorderFolders,
   deleteFolder,
   restoreFolder,
+  hardDeleteWorkspace,
+  hardDeleteFolder,
+  hardDeleteEntry,
   createEntry,
   moveEntryToPosition,
   deleteEntry,
@@ -328,6 +331,130 @@ describe("deleteWorkspace", () => {
     createWorkspace(state, "B");
 
     expect(() => deleteWorkspace(state, ws.id)).not.toThrow();
+  });
+});
+
+describe("hardDeleteEntry", () => {
+  it("removes the entry from state entirely, not just its deleted_at", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "A");
+    const entry = createEntry(state, folder.id, { url: "https://example.com" });
+    deleteEntry(state, entry.id);
+
+    const result = hardDeleteEntry(state, entry.id);
+
+    expect(result.id).toBe(entry.id);
+    expect(state.entries.find((e) => e.id === entry.id)).toBeUndefined();
+  });
+
+  it("leaves sibling entries untouched", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "A");
+    const target = createEntry(state, folder.id, { url: "https://a.example" });
+    const sibling = createEntry(state, folder.id, { url: "https://b.example" });
+    deleteEntry(state, target.id);
+
+    hardDeleteEntry(state, target.id);
+
+    expect(state.entries.find((e) => e.id === sibling.id)).toBeDefined();
+  });
+
+  it("calling it on an already-removed id never corrupts an unrelated entry (regression: findIndex+splice(-1,1) used to delete the array's last entry on a miss)", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "A");
+    const target = createEntry(state, folder.id, { url: "https://a.example" });
+    const unrelatedLast = createEntry(state, folder.id, { url: "https://b.example" });
+    deleteEntry(state, target.id);
+    hardDeleteEntry(state, target.id); // already gone
+
+    hardDeleteEntry(state, target.id); // calling it again on the same, now-missing id
+
+    expect(state.entries.find((e) => e.id === unrelatedLast.id)).toBeDefined();
+  });
+});
+
+describe("hardDeleteFolder", () => {
+  it("removes the folder and its entries entirely", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "A");
+    const entry1 = createEntry(state, folder.id, { url: "https://a.example" });
+    const entry2 = createEntry(state, folder.id, { url: "https://b.example" });
+    deleteFolder(state, folder.id);
+
+    const result = hardDeleteFolder(state, folder.id);
+
+    expect(result.folder.id).toBe(folder.id);
+    expect(result.entries.map((e) => e.id).sort()).toEqual([entry1.id, entry2.id].sort());
+    expect(state.folders.find((f) => f.id === folder.id)).toBeUndefined();
+    expect(state.entries.find((e) => e.id === entry1.id)).toBeUndefined();
+    expect(state.entries.find((e) => e.id === entry2.id)).toBeUndefined();
+  });
+
+  it("sweeps up an entry that was never itself soft-deleted (the cross-device-race case)", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "A");
+    deleteFolder(state, folder.id);
+    // Simulates a late write from another device that hadn't learned the
+    // folder was deleted yet — createEntry has no guard against this.
+    const strayEntry = createEntry(state, folder.id, { url: "https://a.example" });
+
+    const result = hardDeleteFolder(state, folder.id);
+
+    expect(result.entries.map((e) => e.id)).toContain(strayEntry.id);
+    expect(state.entries.find((e) => e.id === strayEntry.id)).toBeUndefined();
+  });
+
+  it("leaves an unrelated folder's entries untouched", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "A");
+    const otherFolder = createFolder(state, ws.id, "B");
+    const unrelatedEntry = createEntry(state, otherFolder.id, { url: "https://c.example" });
+    deleteFolder(state, folder.id);
+
+    hardDeleteFolder(state, folder.id);
+
+    expect(state.entries.find((e) => e.id === unrelatedEntry.id)).toBeDefined();
+  });
+});
+
+describe("hardDeleteWorkspace", () => {
+  it("removes the workspace, its folders, and their entries entirely", () => {
+    const state = emptyState();
+    const other = createWorkspace(state, "keeps app from being workspace-less");
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "Folder A");
+    const entry = createEntry(state, folder.id, { url: "https://a.example" });
+    deleteWorkspace(state, ws.id);
+    void other;
+
+    const result = hardDeleteWorkspace(state, ws.id);
+
+    expect(result.workspace.id).toBe(ws.id);
+    expect(result.folders.map((f) => f.id)).toEqual([folder.id]);
+    expect(result.entries.map((e) => e.id)).toEqual([entry.id]);
+    expect(state.workspaces.find((w) => w.id === ws.id)).toBeUndefined();
+    expect(state.folders.find((f) => f.id === folder.id)).toBeUndefined();
+    expect(state.entries.find((e) => e.id === entry.id)).toBeUndefined();
+  });
+
+  it("leaves an unrelated workspace's folders/entries untouched", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const otherWs = createWorkspace(state, "B");
+    const otherFolder = createFolder(state, otherWs.id, "Folder B");
+    const otherEntry = createEntry(state, otherFolder.id, { url: "https://c.example" });
+    deleteWorkspace(state, ws.id);
+
+    hardDeleteWorkspace(state, ws.id);
+
+    expect(state.folders.find((f) => f.id === otherFolder.id)).toBeDefined();
+    expect(state.entries.find((e) => e.id === otherEntry.id)).toBeDefined();
   });
 });
 

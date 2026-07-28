@@ -52,7 +52,7 @@ CREATE TABLE workspaces (
 
 CREATE TABLE folders (
   id TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+  workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   position INTEGER NOT NULL,
   created_at INTEGER NOT NULL,
@@ -62,7 +62,7 @@ CREATE TABLE folders (
 
 CREATE TABLE entries (
   id TEXT PRIMARY KEY,
-  folder_id TEXT NOT NULL REFERENCES folders(id),
+  folder_id TEXT NOT NULL REFERENCES folders(id) ON DELETE CASCADE,
   url TEXT,                  -- NULL for note-only entries
   title TEXT,
   favicon_url TEXT,          -- pointer only, never stored image data
@@ -112,6 +112,8 @@ It also means content is retained rather than erased, which is what makes a futu
 
 **Practical implication:** normal use of Shelve can never destroy your data through a sync bug — the worst case is a stale write losing a race, which self-heals on the next sync.
 Cloudflare D1's own point-in-time recovery ("Time Travel," see the README FAQ) is the backstop one layer below this, for infrastructure-level issues rather than application logic.
+
+**Permanent delete is the one deliberate exception**, and it's opt-in and narrow: `DELETE /:kind/:id?permanent=true` (trash view only) does a real `DELETE`, but only against a record that's already soft-deleted — the Worker rejects it (400) otherwise, a server-side backstop independent of the UI. `folders.workspace_id`/`entries.folder_id` both have `ON DELETE CASCADE` (`worker/migrations/0003_cascade_delete.sql`), so permanently deleting a workspace or folder atomically removes everything under it in one statement, including any descendant that isn't itself soft-deleted yet — a real (if rare) case, since neither `createFolder` nor `createEntry` checks whether its parent is deleted, so a cross-device race can leave a fresh record under an already-trashed parent.
 
 ### Schema versioning
 
