@@ -25,7 +25,10 @@ const collected = {};
 function printSummary() {
   ui.heading("Summary");
   if (collected.workerUrl) console.log(`Worker URL:  ${ui.bold(collected.workerUrl)}`);
-  if (collected.pagesUrl) console.log(`Web app URL: ${ui.bold(collected.pagesUrl)}`);
+  if (collected.pagesUrl) console.log(`Web app URL: ${ui.bold(collected.pagesUrl)} (this deploy)`);
+  if (collected.pagesProjectName) {
+    console.log(`Web app URL: ${ui.bold(`https://${collected.pagesProjectName}.pages.dev`)} (always latest)`);
+  }
 }
 
 async function upgradeWorker(rl) {
@@ -114,6 +117,7 @@ async function upgradeWeb(rl) {
   // whatever name actually succeeds, in case it changed.
   projectName = await ensurePagesProjectExists(rl, wrangler, projectName);
   writeWizardConfig(root, { pagesProjectName: projectName });
+  collected.pagesProjectName = projectName;
 
   await runCommand(rl, {
     description: "Building the web app.",
