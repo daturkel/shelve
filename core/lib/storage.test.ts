@@ -360,6 +360,20 @@ describe("hardDeleteEntry", () => {
 
     expect(state.entries.find((e) => e.id === sibling.id)).toBeDefined();
   });
+
+  it("calling it on an already-removed id never corrupts an unrelated entry (regression: findIndex+splice(-1,1) used to delete the array's last entry on a miss)", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const folder = createFolder(state, ws.id, "A");
+    const target = createEntry(state, folder.id, { url: "https://a.example" });
+    const unrelatedLast = createEntry(state, folder.id, { url: "https://b.example" });
+    deleteEntry(state, target.id);
+    hardDeleteEntry(state, target.id); // already gone
+
+    hardDeleteEntry(state, target.id); // calling it again on the same, now-missing id
+
+    expect(state.entries.find((e) => e.id === unrelatedLast.id)).toBeDefined();
+  });
 });
 
 describe("hardDeleteFolder", () => {

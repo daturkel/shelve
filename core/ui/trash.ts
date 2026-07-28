@@ -34,6 +34,14 @@ interface TrashLeaf {
   name: string;
   deletedAt: number;
   faviconUrl?: string | null;
+  /** Only set for an entry-kind leaf nested (via its folder) under a
+   * workspace group, where a folder and its own entries are flattened as
+   * siblings in the same one-level descendants list. Lets a descendant
+   * folder's checkbox cascade to its own entries, and lets the selection
+   * plan below avoid double-processing an entry whose folder is also
+   * separately selected — both would otherwise be independently reachable
+   * despite the folder's own hard-delete/restore already cascading to it. */
+  folderId?: string;
 }
 
 type TrashItem =
@@ -74,8 +82,9 @@ function computeTrashItems(state: AppContext["state"]): TrashItem[] {
           name: entryName(e),
           deletedAt: e.deleted_at!,
           faviconUrl: e.favicon_url,
+          folderId: e.folder_id,
         })),
-    ];
+    ].sort((a, b) => b.deletedAt - a.deletedAt);
     items.push({
       kind: "workspace",
       id: w.id,
@@ -95,7 +104,8 @@ function computeTrashItems(state: AppContext["state"]): TrashItem[] {
         name: entryName(e),
         deletedAt: e.deleted_at!,
         faviconUrl: e.favicon_url,
-      }));
+      }))
+      .sort((a, b) => b.deletedAt - a.deletedAt);
     items.push({ kind: "folder", id: f.id, name: f.name || "Untitled folder", deletedAt: f.deleted_at, descendants });
   }
 
@@ -158,7 +168,7 @@ export function buildTrash(ctx: AppContext): HTMLElement {
     ) {
       const descendantsList = document.createElement("div");
       descendantsList.className = "trash-item-descendants";
-      for (const d of item.descendants) descendantsList.appendChild(buildLeafRowEl(ctx, d));
+      for (const d of item.descendants) descendantsList.appendChild(buildLeafRowEl(ctx, d, item.descendants));
       list.appendChild(descendantsList);
     }
   }
@@ -239,22 +249,35 @@ function buildTopLevelRowEl(ctx: AppContext, item: TrashItem): HTMLElement {
       : item.name;
   row.appendChild(name);
 
+  const descendantKeys = descendants.map((d) => trashKey(d.kind, d.id));
   row.appendChild(buildDeletedAtEl(item.deletedAt));
-  row.appendChild(buildRestoreButton(ctx, item.kind, item.id));
-  row.appendChild(buildDeleteForeverButton(ctx, item.kind, item.id, item.name, descendants.length));
+  row.appendChild(buildRestoreButton(ctx, item.kind, item.id, descendantKeys));
+  row.appendChild(buildDeleteForeverButton(ctx, item.kind, item.id, item.name, descendants.length, descendantKeys));
 
   return row;
 }
 
-function buildLeafRowEl(ctx: AppContext, leaf: TrashLeaf): HTMLElement {
+function buildLeafRowEl(ctx: AppContext, leaf: TrashLeaf, siblings: TrashLeaf[]): HTMLElement {
   const row = document.createElement("div");
   row.className = "trash-item trash-item-descendant";
 
   const key = trashKey(leaf.kind, leaf.id);
+  // A descendant *folder* (only possible when it's itself a descendant of a
+  // trashed workspace, sitting alongside its own entries as flattened
+  // siblings) cascades to those entries too, mirroring how a top-level
+  // group's checkbox cascades to all its descendants — otherwise a folder
+  // could be checked without its entries, understating the selection count
+  // relative to what its own hard-delete/restore actually cascades to.
+  const ownEntryKeys =
+    leaf.kind === "folder"
+      ? siblings.filter((s) => s.kind === "entry" && s.folderId === leaf.id).map((s) => trashKey(s.kind, s.id))
+      : [];
   row.appendChild(
     buildCheckbox(ctx, key, (checked) => {
-      if (checked) ctx.selectedTrashIds.add(key);
-      else ctx.selectedTrashIds.delete(key);
+      for (const k of [key, ...ownEntryKeys]) {
+        if (checked) ctx.selectedTrashIds.add(k);
+        else ctx.selectedTrashIds.delete(k);
+      }
       ctx.render();
     }),
   );
@@ -274,8 +297,8 @@ function buildLeafRowEl(ctx: AppContext, leaf: TrashLeaf): HTMLElement {
   row.appendChild(name);
 
   row.appendChild(buildDeletedAtEl(leaf.deletedAt));
-  row.appendChild(buildRestoreButton(ctx, leaf.kind, leaf.id));
-  row.appendChild(buildDeleteForeverButton(ctx, leaf.kind, leaf.id, leaf.name, 0));
+  row.appendChild(buildRestoreButton(ctx, leaf.kind, leaf.id, ownEntryKeys));
+  row.appendChild(buildDeleteForeverButton(ctx, leaf.kind, leaf.id, leaf.name, ownEntryKeys.length, ownEntryKeys));
 
   return row;
 }
@@ -287,12 +310,24 @@ function buildDeletedAtEl(deletedAt: number): HTMLElement {
   return el;
 }
 
-function buildRestoreButton(ctx: AppContext, kind: ResourceKind, id: string): HTMLElement {
+/** `descendantKeys` — for a group row (a workspace/folder with descendants),
+ * their keys too, so acting on the group via its own row button doesn't
+ * leave their (now-meaningless, since the underlying records are gone or
+ * restored) keys stranded in `selectedTrashIds` — only the bulk action bar
+ * and Empty Trash previously cleaned up after themselves; a single row's
+ * own buttons need to as well. */
+function buildRestoreButton(
+  ctx: AppContext,
+  kind: ResourceKind,
+  id: string,
+  descendantKeys: string[] = [],
+): HTMLElement {
   const btn = document.createElement("button");
   btn.className = "trash-restore-btn";
   btn.textContent = "Restore";
   btn.onclick = async () => {
-    restoreTopLevel(ctx, kind, id);
+    for (const k of [trashKey(kind, id), ...descendantKeys]) ctx.selectedTrashIds.delete(k);
+    await restoreTopLevel(ctx, kind, id);
   };
   return btn;
 }
@@ -303,6 +338,7 @@ function buildDeleteForeverButton(
   id: string,
   name: string,
   descendantCount: number,
+  descendantKeys: string[] = [],
 ): HTMLElement {
   const btn = document.createElement("button");
   btn.className = "trash-delete-forever-btn";
@@ -315,6 +351,7 @@ function buildDeleteForeverButton(
     const ok = await showConfirm(message, "Delete forever");
     if (!ok) return;
     hardDeleteTopLevel(ctx, { kind, id });
+    for (const k of [trashKey(kind, id), ...descendantKeys]) ctx.selectedTrashIds.delete(k);
     await ctx.rerender();
     void pushPermanentDelete(workerKind(kind), id);
   };
@@ -323,26 +360,39 @@ function buildDeleteForeverButton(
 
 // ---------- Mutations shared by single-row and bulk actions ----------
 
-async function restoreTopLevel(ctx: AppContext, kind: ResourceKind, id: string): Promise<void> {
+/** Local-state-only mutation (no rerender) — returns the pushResource calls
+ * still to make, as thunks, so bulk callers can mutate everything first and
+ * rerender/push once at the end instead of once per item (matching the
+ * batching hardDeleteTopLevel's bulk callers already do). */
+function mutateRestore(ctx: AppContext, kind: ResourceKind, id: string): Array<() => void> {
   if (kind === "workspace") {
     const { workspace, folders, entries } = restoreWorkspace(ctx.state, id);
-    await ctx.rerender();
-    void pushResource("workspaces", workspace);
-    for (const f of folders) void pushResource("folders", f);
-    for (const e of entries) void pushResource("entries", e);
+    return [
+      () => void pushResource("workspaces", workspace),
+      ...folders.map((f) => () => void pushResource("folders", f)),
+      ...entries.map((e) => () => void pushResource("entries", e)),
+    ];
   } else if (kind === "folder") {
     const { folder, entries, restoredWorkspace } = restoreFolder(ctx.state, id);
-    await ctx.rerender();
-    void pushResource("folders", folder);
-    for (const e of entries) void pushResource("entries", e);
-    if (restoredWorkspace) void pushResource("workspaces", restoredWorkspace);
+    const pushes = [
+      () => void pushResource("folders", folder),
+      ...entries.map((e) => () => void pushResource("entries", e)),
+    ];
+    if (restoredWorkspace) pushes.push(() => void pushResource("workspaces", restoredWorkspace));
+    return pushes;
   } else {
     const { entry, restoredFolder, restoredWorkspace } = restoreEntry(ctx.state, id);
-    await ctx.rerender();
-    void pushResource("entries", entry);
-    if (restoredFolder) void pushResource("folders", restoredFolder);
-    if (restoredWorkspace) void pushResource("workspaces", restoredWorkspace);
+    const pushes = [() => void pushResource("entries", entry)];
+    if (restoredFolder) pushes.push(() => void pushResource("folders", restoredFolder));
+    if (restoredWorkspace) pushes.push(() => void pushResource("workspaces", restoredWorkspace));
+    return pushes;
   }
+}
+
+async function restoreTopLevel(ctx: AppContext, kind: ResourceKind, id: string): Promise<void> {
+  const pushes = mutateRestore(ctx, kind, id);
+  await ctx.rerender();
+  for (const push of pushes) push();
 }
 
 /** Local-state-only mutation (no rerender/push) — bulk callers batch these
@@ -358,7 +408,14 @@ function hardDeleteTopLevel(ctx: AppContext, item: Pick<TrashItem, "kind" | "id"
 /** For each top-level item, either it itself is selected (act on the whole
  * group, skip its descendants even if individually selected too — the
  * group's own restore/hard-delete already cascades to them) or, if not,
- * whichever of its descendants are individually selected act on their own. */
+ * whichever of its descendants are individually selected act on their own —
+ * except an entry whose own folder is *also* independently selected within
+ * the same group, which is skipped the same way: that folder's own
+ * restore/hard-delete will already cascade to it. Without this, both would
+ * end up in the plan and get processed twice — for hard-delete specifically
+ * that's not just redundant but unsafe (the second call would find the
+ * entry already gone). buildLeafRowEl's checkbox cascade makes this the
+ * normal case rather than a rare one, but this is the actual guarantee. */
 function computeSelectionPlan(ctx: AppContext, items: TrashItem[]): { kind: ResourceKind; id: string }[] {
   const plan: { kind: ResourceKind; id: string }[] = [];
   for (const item of items) {
@@ -367,8 +424,15 @@ function computeSelectionPlan(ctx: AppContext, items: TrashItem[]): { kind: Reso
       continue;
     }
     if (item.kind === "entry") continue;
+    const selectedFolderIds = new Set(
+      item.descendants
+        .filter((d) => d.kind === "folder" && ctx.selectedTrashIds.has(trashKey(d.kind, d.id)))
+        .map((d) => d.id),
+    );
     for (const d of item.descendants) {
-      if (ctx.selectedTrashIds.has(trashKey(d.kind, d.id))) plan.push({ kind: d.kind, id: d.id });
+      if (!ctx.selectedTrashIds.has(trashKey(d.kind, d.id))) continue;
+      if (d.kind === "entry" && d.folderId && selectedFolderIds.has(d.folderId)) continue;
+      plan.push({ kind: d.kind, id: d.id });
     }
   }
   return plan;
@@ -391,9 +455,10 @@ function buildTrashSelectionBar(ctx: AppContext, items: TrashItem[]): HTMLElemen
   restoreBtn.textContent = "Restore";
   restoreBtn.onclick = async () => {
     const plan = computeSelectionPlan(ctx, items);
-    for (const { kind, id } of plan) await restoreTopLevel(ctx, kind, id);
+    const pushes = plan.flatMap(({ kind, id }) => mutateRestore(ctx, kind, id));
     ctx.selectedTrashIds.clear();
     await ctx.rerender();
+    for (const push of pushes) push();
   };
   actions.appendChild(restoreBtn);
 

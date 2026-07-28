@@ -417,13 +417,21 @@ export function deleteEntry(state: State, entryId: string): Entry {
 }
 
 /** Permanently removes an entry from local state — unlike every delete
- * function above, this actually splices the record out rather than setting
+ * function above, this actually removes the record rather than setting
  * deleted_at. Only ever called on an already-soft-deleted entry (the
  * trash view is the only caller); the Worker enforces the same rule
- * server-side as a backstop. */
+ * server-side as a backstop.
+ *
+ * Reassigns `state.entries` via filter rather than a findIndex+splice —
+ * besides being simpler (matching the filter-based collect pattern already
+ * used by deleteWorkspace/restoreFolder above), splicing by a possibly-miss
+ * index is a real footgun: a stale/already-removed id would splice(-1, 1)
+ * and silently corrupt an unrelated (the array's last) record instead of
+ * safely no-op'ing. filter has no such failure mode regardless of whether
+ * entryId is actually present. */
 export function hardDeleteEntry(state: State, entryId: string): Entry {
-  const index = state.entries.findIndex((e) => e.id === entryId);
-  const [entry] = state.entries.splice(index, 1);
+  const entry = state.entries.find((e) => e.id === entryId)!;
+  state.entries = state.entries.filter((e) => e.id !== entryId);
   return entry;
 }
 
@@ -434,39 +442,33 @@ export function hardDeleteEntry(state: State, entryId: string): Entry {
  * no check that its folder still exists or isn't deleted — see that
  * function), and "permanently delete this folder" must mean nothing under
  * it survives, not silently leave an orphaned entry with a dangling
- * folder_id in local state. */
+ * folder_id in local state. See hardDeleteEntry for why filter, not splice. */
 export function hardDeleteFolder(state: State, folderId: string): { folder: Folder; entries: Entry[] } {
-  const folderIndex = state.folders.findIndex((f) => f.id === folderId);
-  const [folder] = state.folders.splice(folderIndex, 1);
+  const folder = state.folders.find((f) => f.id === folderId)!;
+  state.folders = state.folders.filter((f) => f.id !== folderId);
 
-  const entries: Entry[] = [];
-  for (let i = state.entries.length - 1; i >= 0; i--) {
-    if (state.entries[i].folder_id === folderId) entries.unshift(...state.entries.splice(i, 1));
-  }
+  const entries = state.entries.filter((e) => e.folder_id === folderId);
+  state.entries = state.entries.filter((e) => e.folder_id !== folderId);
 
   return { folder, entries };
 }
 
 /** Permanently removes a workspace and every folder/entry under it —
  * same "sweep up regardless of deleted_at" reasoning as hardDeleteFolder,
- * one level up. */
+ * one level up. See hardDeleteEntry for why filter, not splice. */
 export function hardDeleteWorkspace(
   state: State,
   workspaceId: string,
 ): { workspace: Workspace; folders: Folder[]; entries: Entry[] } {
-  const workspaceIndex = state.workspaces.findIndex((w) => w.id === workspaceId);
-  const [workspace] = state.workspaces.splice(workspaceIndex, 1);
+  const workspace = state.workspaces.find((w) => w.id === workspaceId)!;
+  state.workspaces = state.workspaces.filter((w) => w.id !== workspaceId);
 
-  const folders: Folder[] = [];
-  for (let i = state.folders.length - 1; i >= 0; i--) {
-    if (state.folders[i].workspace_id === workspaceId) folders.unshift(...state.folders.splice(i, 1));
-  }
+  const folders = state.folders.filter((f) => f.workspace_id === workspaceId);
+  state.folders = state.folders.filter((f) => f.workspace_id !== workspaceId);
 
   const folderIds = new Set(folders.map((f) => f.id));
-  const entries: Entry[] = [];
-  for (let i = state.entries.length - 1; i >= 0; i--) {
-    if (folderIds.has(state.entries[i].folder_id)) entries.unshift(...state.entries.splice(i, 1));
-  }
+  const entries = state.entries.filter((e) => folderIds.has(e.folder_id));
+  state.entries = state.entries.filter((e) => !folderIds.has(e.folder_id));
 
   return { workspace, folders, entries };
 }
