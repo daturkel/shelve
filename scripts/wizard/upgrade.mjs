@@ -89,13 +89,13 @@ async function upgradeWeb(rl) {
 
   if (!projectName) {
     // Nothing recorded doesn't mean nothing's deployed — it just means it
-    // wasn't deployed via this wizard (e.g. MANUAL_SETUP.md's Option B).
+    // wasn't deployed via this wizard (e.g. SETUP.md's Option B).
     // Offer to adopt it: once we have the project name, upgrading it is
     // identical to the wizard-tracked case, and remembering it here means
     // this only needs to be entered once.
     const hasManualDeploy = await confirm(
       rl,
-      "\nNo web app deployment recorded by this wizard — did you deploy one manually (MANUAL_SETUP.md's Option B)?",
+      "\nNo web app deployment recorded by this wizard — did you deploy one manually (SETUP.md's Option B)?",
       false,
     );
     if (!hasManualDeploy) return;

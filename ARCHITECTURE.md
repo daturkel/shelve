@@ -229,7 +229,8 @@ shelve/
     release.mjs                # promotes CHANGELOG.md's Unreleased section, see RELEASING.md
   README.md
   ARCHITECTURE.md             # this file
-  MANUAL_SETUP.md              # step-by-step alternative to npm run setup/upgrade
+  SETUP.md                    # wizard + step-by-step manual deploy/upgrade
+  OPERATIONS.md                # day-two ops: multi-device, lost token, revoke, restore
   KNOWN_GAPS.md
   CHANGELOG.md
   RELEASING.md
