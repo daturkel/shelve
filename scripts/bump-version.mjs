@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 // Bumps the project version across every place it's hand-duplicated:
-// root/shared/worker/extension's package.json, extension/manifest.json,
-// and worker/src/version.ts's WORKER_VERSION. Extension and worker share
-// one project-wide version (see README's "Upgrading" section) even
-// though they're deployed independently, so this keeps the extension's
-// self-reported version and the Worker's /health version — which the
-// compatibility check on the options page reasons about directly —
-// consistent with each other during development, not just at release
-// time.
+// root/shared/worker/extension/web's package.json, extension/manifest.json,
+// worker/src/version.ts's WORKER_VERSION, and web/src/version.ts's
+// WEB_VERSION. Extension, worker, and web share one project-wide version
+// (see README's "Upgrading" section) even though they're deployed
+// independently, so this keeps the extension's self-reported version, the
+// Worker's /health version — which the compatibility check on the
+// options/settings page reasons about directly — and the web app's own
+// self-reported version consistent with each other during development, not
+// just at release time.
 //
 // This only edits files — it doesn't commit anything. Run it whenever
 // you're ready to start working towards a new version; committing the
@@ -55,17 +56,19 @@ for (const relPath of [
   bumpJsonVersion(relPath);
 }
 
-const workerVersionPath = join(root, "worker/src/version.ts");
-const workerVersionPattern = /export const WORKER_VERSION = "[^"]*";/;
-const workerVersionContent = readFileSync(workerVersionPath, "utf8");
-if (!workerVersionPattern.test(workerVersionContent)) {
-  console.error("Couldn't find WORKER_VERSION to bump in worker/src/version.ts");
-  process.exit(1);
+function bumpVersionConst(relPath, constName) {
+  const path = join(root, relPath);
+  const pattern = new RegExp(`export const ${constName} = "[^"]*";`);
+  const content = readFileSync(path, "utf8");
+  if (!pattern.test(content)) {
+    console.error(`Couldn't find ${constName} to bump in ${relPath}`);
+    process.exit(1);
+  }
+  writeFileSync(path, content.replace(pattern, `export const ${constName} = "${version}";`));
 }
-writeFileSync(
-  workerVersionPath,
-  workerVersionContent.replace(workerVersionPattern, `export const WORKER_VERSION = "${version}";`),
-);
+
+bumpVersionConst("worker/src/version.ts", "WORKER_VERSION");
+bumpVersionConst("web/src/version.ts", "WEB_VERSION");
 
 console.log(
   `Bumped to ${version} everywhere. This is a normal dev commit — review the diff and commit whenever you like.`,

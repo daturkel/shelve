@@ -12,6 +12,7 @@ import { importToby, exportToby, isTobyExport } from "@shelve/core/lib/tobyImpor
 import { downloadJson, readFileAsJson, isRemoteState } from "@shelve/core/lib/backupFile";
 import { applyTheme } from "@shelve/core/lib/theme";
 import { showConfirm } from "@shelve/core/lib/modal";
+import { WEB_VERSION } from "./version";
 
 /** The web app's settings/connect screen — Worker URL/token, theme,
  * backup/Toby import-export, modeled on extension/src/options/main.ts
@@ -44,6 +45,10 @@ export async function buildSettings(uiState: UiState, onClose: () => void): Prom
   const h1 = document.createElement("h1");
   h1.textContent = "Settings";
   titleRow.appendChild(h1);
+  const version = document.createElement("span");
+  version.className = "version";
+  version.textContent = `v${WEB_VERSION}`;
+  titleRow.appendChild(version);
   wrap.appendChild(titleRow);
 
   const hint = document.createElement("p");

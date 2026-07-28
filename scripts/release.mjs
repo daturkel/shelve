@@ -24,6 +24,7 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 
 const jsonVersionPattern = /"version":\s*"([^"]*)"/;
 const workerVersionPattern = /export const WORKER_VERSION = "([^"]*)";/;
+const webVersionPattern = /export const WEB_VERSION = "([^"]*)";/;
 
 function readVersion(relPath, pattern) {
   const content = readFileSync(join(root, relPath), "utf8");
@@ -44,6 +45,7 @@ const versions = {
   "extension/manifest.json": readVersion("extension/manifest.json", jsonVersionPattern),
   "web/package.json": readVersion("web/package.json", jsonVersionPattern),
   "worker/src/version.ts": readVersion("worker/src/version.ts", workerVersionPattern),
+  "web/src/version.ts": readVersion("web/src/version.ts", webVersionPattern),
 };
 
 const version = versions["package.json"];

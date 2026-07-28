@@ -130,7 +130,7 @@ async function setUpWorker(rl) {
 
   await runCommand(rl, {
     description:
-      'Applying database migrations. If a migration has real work to do, Wrangler will ask its own "continue?" question below — press Enter (or type y) to answer it.',
+      'Applying database migrations. Wrangler may ask "...continue?" — answer it, then hit Enter again if it looks stuck afterward.',
     cmd: wrangler,
     args: ["d1", "migrations", "apply", databaseName, "--remote"],
     cwd: workerDir,
@@ -179,7 +179,7 @@ async function applyMigrationsAndDeploy(rl, databaseName) {
   const wrangler = wranglerBin(root);
   await runCommand(rl, {
     description:
-      "Applying any new database migrations (a no-op if there aren't any). If there's real work to do, Wrangler will ask its own \"continue?\" question below — press Enter (or type y) to answer it.",
+      'Applying any new database migrations (a no-op if there aren\'t any). Wrangler may ask "...continue?" — answer it, then hit Enter again if it looks stuck afterward.',
     cmd: wrangler,
     args: ["d1", "migrations", "apply", databaseName, "--remote"],
     cwd: workerDir,
