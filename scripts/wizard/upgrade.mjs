@@ -38,7 +38,7 @@ async function upgradeWorker(rl) {
   const wrangler = wranglerBin(root);
   await runCommand(rl, {
     description:
-      "Applying any new database migrations (a no-op if there aren't any). If there's real work to do, Wrangler will ask its own \"continue?\" question below — press Enter (or type y) to answer it.",
+      "Applying any new database migrations (a no-op if there aren't any). If there's real work to do, Wrangler will ask its own \"...continue?\" question below — press Enter (or type y) to answer it. It can then briefly look stuck with no visible prompt once the results table prints — press Enter again if so.",
     cmd: wrangler,
     args: ["d1", "migrations", "apply", config.databaseName, "--remote"],
     cwd: workerDir,
