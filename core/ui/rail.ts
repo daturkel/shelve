@@ -15,11 +15,18 @@ export function buildRail(ctx: AppContext): HTMLElement {
 
   for (const ws of workspaces) {
     const item = document.createElement("div");
-    item.className = "rail-item" + (ws.id === ctx.activeWorkspaceId ? " active" : "");
+    // Trash is global, not scoped to activeWorkspaceId (see the Trash
+    // button below) — while it's open, no workspace should still look
+    // selected, or it'd misleadingly suggest Trash belongs to whichever
+    // one was active before.
+    const isActive = !ctx.showTrash && ws.id === ctx.activeWorkspaceId;
+    item.className = "rail-item" + (isActive ? " active" : "");
     item.title = "Double-click to rename";
     item.onclick = () => {
       ctx.activeWorkspaceId = ws.id;
       ctx.showTrash = false;
+      ctx.uiState.lastActiveWorkspaceId = ws.id;
+      void ctx.persistUiState();
       ctx.render();
     };
     item.ondblclick = async (ev) => {
@@ -51,6 +58,8 @@ export function buildRail(ctx: AppContext): HTMLElement {
         const { workspace, folders, entries } = deleteWorkspace(ctx.state, ws.id);
         if (ctx.activeWorkspaceId === ws.id) {
           ctx.activeWorkspaceId = pickDefaultWorkspaceId(ctx.state);
+          ctx.uiState.lastActiveWorkspaceId = ctx.activeWorkspaceId;
+          await ctx.persistUiState();
         }
         await ctx.rerender();
         void pushDelete("workspaces", workspace.id);
@@ -71,6 +80,8 @@ export function buildRail(ctx: AppContext): HTMLElement {
     if (!name) return;
     const ws = createWorkspace(ctx.state, name);
     ctx.activeWorkspaceId = ws.id;
+    ctx.uiState.lastActiveWorkspaceId = ws.id;
+    await ctx.persistUiState();
     await ctx.rerender();
     void pushResource("workspaces", ws);
   };

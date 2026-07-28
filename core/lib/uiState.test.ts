@@ -15,6 +15,7 @@ describe("getUiState", () => {
       rightCollapsed: false,
       closeTabOnSave: false,
       theme: "auto",
+      lastActiveWorkspaceId: null,
     });
   });
 
@@ -39,6 +40,7 @@ describe("setUiState / getUiState round-trip", () => {
       rightCollapsed: true,
       closeTabOnSave: true,
       theme: "dark",
+      lastActiveWorkspaceId: "ws1",
     };
     await setUiState(custom);
     await expect(getUiState()).resolves.toEqual(custom);

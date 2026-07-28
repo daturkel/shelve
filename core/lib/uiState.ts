@@ -30,6 +30,16 @@ export interface UiState {
    * override it explicitly. See lib/theme.ts's applyTheme(), which every
    * page (newtab, popup, options) calls on load. */
   theme: "light" | "dark" | "auto";
+  /** The workspace active when the app was last closed on this device —
+   * reopening picks this one back up instead of always defaulting to
+   * whichever workspace sorts first, so a device that's mostly used for
+   * one particular workspace (e.g. a work computer defaulting to a Work
+   * workspace) naturally stays there. Device-local by design, same as
+   * everything else here: which workspace you were last in on your phone
+   * has no bearing on which one your laptop should open to. Falls back to
+   * `pickDefaultWorkspaceId()` if null, or if the workspace it names no
+   * longer exists (deleted, or never synced to this device). */
+  lastActiveWorkspaceId: string | null;
 }
 
 const DEFAULTS: UiState = {
@@ -39,6 +49,7 @@ const DEFAULTS: UiState = {
   rightCollapsed: false,
   closeTabOnSave: false,
   theme: "auto",
+  lastActiveWorkspaceId: null,
 };
 
 export async function getUiState(): Promise<UiState> {

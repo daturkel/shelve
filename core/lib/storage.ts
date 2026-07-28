@@ -1,5 +1,6 @@
 import type { Workspace, Folder, Entry } from "@shelve/shared";
 import { getStore } from "./store";
+import type { UiState } from "./uiState";
 
 export interface State {
   workspaces: Workspace[];
@@ -67,6 +68,18 @@ export function createWorkspace(state: State, name: string): Workspace {
 export function pickDefaultWorkspaceId(state: State): string {
   const sorted = state.workspaces.filter((w) => w.deleted_at === null).sort((a, b) => a.position - b.position);
   return sorted[0]?.id ?? "";
+}
+
+/** The workspace to open to on load: whichever one was last active on
+ * this device (see `UiState.lastActiveWorkspaceId`'s doc comment), as
+ * long as it still exists and isn't deleted — otherwise falls back to
+ * `pickDefaultWorkspaceId()`, same as a device that's never had one. */
+export function pickActiveWorkspaceId(state: State, lastActiveWorkspaceId: UiState["lastActiveWorkspaceId"]): string {
+  if (lastActiveWorkspaceId) {
+    const last = state.workspaces.find((w) => w.id === lastActiveWorkspaceId);
+    if (last && last.deleted_at === null) return last.id;
+  }
+  return pickDefaultWorkspaceId(state);
 }
 
 export function renameWorkspace(state: State, workspaceId: string, name: string): Workspace {

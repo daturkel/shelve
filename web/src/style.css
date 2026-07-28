@@ -846,6 +846,10 @@ body {
 .status.error {
   color: var(--error);
 }
+.status a {
+  color: inherit;
+  text-decoration: underline;
+}
 
 .data-row {
   display: flex;

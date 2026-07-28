@@ -1,4 +1,4 @@
-import { type State, loadState, saveState, pickDefaultWorkspaceId } from "@shelve/core/lib/storage";
+import { type State, loadState, saveState, pickActiveWorkspaceId } from "@shelve/core/lib/storage";
 import { pullAndMerge, pushAll, onSyncStatusChange } from "@shelve/core/lib/sync";
 import { getUiState, setUiState } from "@shelve/core/lib/uiState";
 import { applyTheme } from "@shelve/core/lib/theme";
@@ -42,7 +42,7 @@ applyTheme(uiState.theme);
 const ctx: AppContext = {
   state,
   uiState,
-  activeWorkspaceId: pickDefaultWorkspaceId(state),
+  activeWorkspaceId: pickActiveWorkspaceId(state, uiState.lastActiveWorkspaceId),
   searchQuery: "",
   showTrash: false,
   selectedTabIds: new Set(),

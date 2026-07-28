@@ -127,6 +127,10 @@ body {
 .status.error {
   color: var(--error);
 }
+.status a {
+  color: inherit;
+  text-decoration: underline;
+}
 
 .options h2 {
   font-size: 14px;

@@ -104,9 +104,18 @@ export async function buildSettings(uiState: UiState, onClose: () => void): Prom
   workerStatus.className = "status";
   connectForm.appendChild(workerStatus);
 
-  function setWorkerStatus(text: string, kind: "" | "success" | "error" = "") {
-    workerStatus.textContent = text;
+  function setWorkerStatus(content: string | (string | Node)[], kind: "" | "success" | "error" = "") {
+    workerStatus.replaceChildren(...(typeof content === "string" ? [content] : content));
     workerStatus.className = kind ? `status ${kind}` : "status";
+  }
+
+  function setupDocLink(text: string, anchor: string): HTMLAnchorElement {
+    const link = document.createElement("a");
+    link.href = `https://github.com/daturkel/shelve/blob/main/SETUP.md#${anchor}`;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = text;
+    return link;
   }
 
   async function refreshWorkerStatus() {
@@ -117,7 +126,11 @@ export async function buildSettings(uiState: UiState, onClose: () => void): Prom
     }
     if (!isWorkerSchemaCompatible(health)) {
       setWorkerStatus(
-        `Worker: v${health.version} — its schema is out of date. Sync is paused until you upgrade it (see README.md's "Upgrading" section).`,
+        [
+          `Worker: v${health.version} — its schema is out of date. Sync is paused until you upgrade it (see `,
+          setupDocLink("SETUP.md", "upgrading"),
+          `'s "Upgrading" section).`,
+        ],
         "error",
       );
       return;

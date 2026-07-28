@@ -30,6 +30,7 @@ function fakeContext(overrides: Partial<AppContext> = {}): AppContext {
       rightCollapsed: false,
       closeTabOnSave: false,
       theme: "auto",
+      lastActiveWorkspaceId: null,
     },
     activeWorkspaceId: "",
     searchQuery: "",

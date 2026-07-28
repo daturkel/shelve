@@ -7,6 +7,7 @@ import {
   deleteWorkspace,
   restoreWorkspace,
   pickDefaultWorkspaceId,
+  pickActiveWorkspaceId,
   createFolder,
   renameFolder,
   reorderFolders,
@@ -523,6 +524,41 @@ describe("pickDefaultWorkspaceId", () => {
 
   it("returns an empty string when there are no workspaces at all", () => {
     expect(pickDefaultWorkspaceId(emptyState())).toBe("");
+  });
+});
+
+describe("pickActiveWorkspaceId", () => {
+  it("picks the last-active workspace when it still exists and isn't deleted", () => {
+    const state = emptyState();
+    const first = createWorkspace(state, "First");
+    const second = createWorkspace(state, "Second");
+
+    expect(pickActiveWorkspaceId(state, second.id)).toBe(second.id);
+    expect(pickActiveWorkspaceId(state, first.id)).toBe(first.id);
+  });
+
+  it("falls back to pickDefaultWorkspaceId when lastActiveWorkspaceId is null", () => {
+    const state = emptyState();
+    const first = createWorkspace(state, "First");
+
+    expect(pickActiveWorkspaceId(state, null)).toBe(pickDefaultWorkspaceId(state));
+    expect(pickActiveWorkspaceId(state, null)).toBe(first.id);
+  });
+
+  it("falls back to pickDefaultWorkspaceId when the last-active workspace no longer exists", () => {
+    const state = emptyState();
+    const other = createWorkspace(state, "Other");
+
+    expect(pickActiveWorkspaceId(state, "never-existed")).toBe(other.id);
+  });
+
+  it("falls back to pickDefaultWorkspaceId when the last-active workspace has since been deleted", () => {
+    const state = emptyState();
+    const ws = createWorkspace(state, "A");
+    const other = createWorkspace(state, "B");
+    deleteWorkspace(state, ws.id);
+
+    expect(pickActiveWorkspaceId(state, ws.id)).toBe(other.id);
   });
 });
 
