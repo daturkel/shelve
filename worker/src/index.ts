@@ -144,10 +144,36 @@ async function deleteResource(db: D1Database, kind: ResourceKind, id: string): P
   return Response.json({ ok: true });
 }
 
+/** Actually removes a row, rather than soft-deleting it — only ever valid
+ * on a record that's already soft-deleted (a server-side backstop: a client
+ * bug can never permanently delete live data even if the UI would never
+ * construct such a request). `folders.workspace_id`/`entries.folder_id`
+ * both have `ON DELETE CASCADE` (see migrations/0003_cascade_delete.sql),
+ * so a single DELETE against a workspace or folder atomically removes
+ * everything under it — including any descendant that happens to not be
+ * soft-deleted itself (e.g. a folder deleted on one device before another,
+ * not-yet-synced device creates a new entry in it) — no manual
+ * descendant-gathering or multi-statement ordering needed here. */
+async function permanentDeleteResource(db: D1Database, kind: ResourceKind, id: string): Promise<Response> {
+  const table = TABLES[kind];
+  const existing = await db.prepare(`SELECT deleted_at FROM ${table} WHERE id = ?`).bind(id).first<{
+    deleted_at: number | null;
+  }>();
+  if (!existing) {
+    return new Response("Not found", { status: 404 });
+  }
+  if (existing.deleted_at === null) {
+    return new Response("Must be soft-deleted before it can be permanently deleted", { status: 400 });
+  }
+
+  await db.prepare(`DELETE FROM ${table} WHERE id = ?`).bind(id).run();
+  return Response.json({ ok: true });
+}
+
 const RESOURCE_PATTERN = /^\/(workspaces|folders|entries)\/([^/]+)$/;
 
 async function route(request: Request, env: Env): Promise<Response> {
-  const { pathname } = new URL(request.url);
+  const { pathname, searchParams } = new URL(request.url);
 
   if (!isAuthorized(request, env)) {
     return new Response("Unauthorized", { status: 401 });
@@ -178,6 +204,9 @@ async function route(request: Request, env: Env): Promise<Response> {
     }
 
     if (request.method === "DELETE") {
+      if (searchParams.get("permanent") === "true") {
+        return permanentDeleteResource(env.DB, kind, id);
+      }
       return deleteResource(env.DB, kind, id);
     }
   }

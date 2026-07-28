@@ -415,3 +415,58 @@ export function deleteEntry(state: State, entryId: string): Entry {
   entry.updated_at = now;
   return entry;
 }
+
+/** Permanently removes an entry from local state — unlike every delete
+ * function above, this actually splices the record out rather than setting
+ * deleted_at. Only ever called on an already-soft-deleted entry (the
+ * trash view is the only caller); the Worker enforces the same rule
+ * server-side as a backstop. */
+export function hardDeleteEntry(state: State, entryId: string): Entry {
+  const index = state.entries.findIndex((e) => e.id === entryId);
+  const [entry] = state.entries.splice(index, 1);
+  return entry;
+}
+
+/** Permanently removes a folder and every entry referencing it — regardless
+ * of the entries' own deleted_at, matching the Worker's ON DELETE CASCADE
+ * (worker/migrations/0003_cascade_delete.sql): a folder can end up with a
+ * non-deleted entry under it via a real cross-device race (createEntry has
+ * no check that its folder still exists or isn't deleted — see that
+ * function), and "permanently delete this folder" must mean nothing under
+ * it survives, not silently leave an orphaned entry with a dangling
+ * folder_id in local state. */
+export function hardDeleteFolder(state: State, folderId: string): { folder: Folder; entries: Entry[] } {
+  const folderIndex = state.folders.findIndex((f) => f.id === folderId);
+  const [folder] = state.folders.splice(folderIndex, 1);
+
+  const entries: Entry[] = [];
+  for (let i = state.entries.length - 1; i >= 0; i--) {
+    if (state.entries[i].folder_id === folderId) entries.unshift(...state.entries.splice(i, 1));
+  }
+
+  return { folder, entries };
+}
+
+/** Permanently removes a workspace and every folder/entry under it —
+ * same "sweep up regardless of deleted_at" reasoning as hardDeleteFolder,
+ * one level up. */
+export function hardDeleteWorkspace(
+  state: State,
+  workspaceId: string,
+): { workspace: Workspace; folders: Folder[]; entries: Entry[] } {
+  const workspaceIndex = state.workspaces.findIndex((w) => w.id === workspaceId);
+  const [workspace] = state.workspaces.splice(workspaceIndex, 1);
+
+  const folders: Folder[] = [];
+  for (let i = state.folders.length - 1; i >= 0; i--) {
+    if (state.folders[i].workspace_id === workspaceId) folders.unshift(...state.folders.splice(i, 1));
+  }
+
+  const folderIds = new Set(folders.map((f) => f.id));
+  const entries: Entry[] = [];
+  for (let i = state.entries.length - 1; i >= 0; i--) {
+    if (folderIds.has(state.entries[i].folder_id)) entries.unshift(...state.entries.splice(i, 1));
+  }
+
+  return { workspace, folders, entries };
+}
