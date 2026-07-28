@@ -41,7 +41,9 @@ npm run setup
 
 `npm run setup` is an interactive wizard that deploys the Worker + D1 backend and, optionally, the web app — it prints every command before running it and asks for confirmation first, and it's safe to re-run if you stop partway through. Chrome extension setup is a manual browser step (`chrome://extensions` → Load unpacked) that the wizard prints instructions for at the end.
 
-For the full walkthrough (each step explained, or doing it by hand instead of via the wizard), see [SETUP.md](SETUP.md). For upgrading an existing install, lost tokens, revoking a device, or restoring from a backup, see [OPERATIONS.md](OPERATIONS.md).
+Later, `npm run upgrade` does the same thing for an existing install — applies any new migrations and redeploys, same confirm-every-command posture.
+
+For the full walkthrough (each step explained, or doing it by hand instead of via the wizard), see [SETUP.md](SETUP.md). For lost tokens, revoking a device, or restoring from a backup, see [OPERATIONS.md](OPERATIONS.md).
 
 ## Learn more
 
