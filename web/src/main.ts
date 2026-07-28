@@ -78,7 +78,16 @@ const ctx: AppContext = {
 // One-time: re-renders the toolbar's sync status dot whenever a push/pull
 // resolves — pushResource/pushDelete are fire-and-forget, so nothing else
 // would otherwise trigger a render once one settles after the fact.
-onSyncStatusChange(() => void render());
+// Skipped while Settings is open: buildMain() doesn't render the toolbar at
+// all in that state, so there's no status dot to update — only harm to do,
+// since rebuilding Settings from scratch here would wipe out whatever
+// status message Settings' own Save/Disconnect flow just set (e.g. "Saved,
+// but couldn't connect" from a failed connection test), often before the
+// user even has a chance to read it.
+onSyncStatusChange(() => {
+  if (showSettings) return;
+  void render();
+});
 
 // One-time: reload in-memory state and re-render when another same-origin
 // tab changes the store — see webStore.ts's onRemoteChange doc comment.

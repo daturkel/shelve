@@ -56,31 +56,53 @@ export async function buildSettings(uiState: UiState, onClose: () => void): Prom
   hint.textContent = "Connect to your self-hosted Cloudflare Worker to sync across devices.";
   wrap.appendChild(hint);
 
+  // A real <form> (rather than plain <div>s) plus id/name/autocomplete on
+  // each input and a proper <label for="...">, so a password manager can
+  // actually recognize and offer to save/fill these — previously there was
+  // nothing for one to key off besides the token field's type="password".
+  const connectForm = document.createElement("form");
+  connectForm.className = "connect-form";
+  connectForm.autocomplete = "on";
+  // Appended right away (children are filled in below over the next ~100
+  // lines) so its position among wrap's children is fixed here, before
+  // themeField and the Data section — appending it only once everything's
+  // filled in (further down) would put it after themeField in DOM order
+  // instead, reordering the rendered page.
+  wrap.appendChild(connectForm);
+
   const urlField = document.createElement("div");
   urlField.className = "field";
   const urlLabel = document.createElement("label");
   urlLabel.textContent = "Worker URL";
+  urlLabel.htmlFor = "worker-url";
   const urlInput = document.createElement("input");
   urlInput.type = "text";
+  urlInput.id = "worker-url";
+  urlInput.name = "worker-url";
+  urlInput.setAttribute("autocomplete", "url"); // not in TS's AutoFill union, but a valid/standard token
   urlInput.placeholder = "https://shelve-worker.your-name.workers.dev";
   urlInput.value = config?.workerUrl ?? "";
   urlField.append(urlLabel, urlInput);
-  wrap.appendChild(urlField);
+  connectForm.appendChild(urlField);
 
   const tokenField = document.createElement("div");
   tokenField.className = "field";
   const tokenLabel = document.createElement("label");
   tokenLabel.textContent = "API Token";
+  tokenLabel.htmlFor = "api-token";
   const tokenInput = document.createElement("input");
   tokenInput.type = "password";
+  tokenInput.id = "api-token";
+  tokenInput.name = "api-token";
+  tokenInput.autocomplete = "current-password";
   tokenInput.placeholder = "your API_TOKEN secret";
   tokenInput.value = config?.apiToken ?? "";
   tokenField.append(tokenLabel, tokenInput);
-  wrap.appendChild(tokenField);
+  connectForm.appendChild(tokenField);
 
   const workerStatus = document.createElement("div");
   workerStatus.className = "status";
-  wrap.appendChild(workerStatus);
+  connectForm.appendChild(workerStatus);
 
   function setWorkerStatus(text: string, kind: "" | "success" | "error" = "") {
     workerStatus.textContent = text;
@@ -132,28 +154,31 @@ export async function buildSettings(uiState: UiState, onClose: () => void): Prom
     themeToggle.appendChild(btn);
   }
   themeField.appendChild(themeToggle);
-  wrap.appendChild(themeField);
+  connectForm.appendChild(themeField);
 
   const actionsRow = document.createElement("div");
   actionsRow.className = "data-row";
 
   const saveBtn = document.createElement("button");
+  saveBtn.type = "submit";
   saveBtn.className = "save-btn";
   saveBtn.textContent = "Save";
   actionsRow.appendChild(saveBtn);
 
   const disconnectBtn = document.createElement("button");
+  disconnectBtn.type = "button"; // not a submit — would otherwise trigger the form's save handler
   disconnectBtn.className = "menu-btn";
   disconnectBtn.textContent = "Disconnect";
   disconnectBtn.hidden = !config;
   actionsRow.appendChild(disconnectBtn);
-  wrap.appendChild(actionsRow);
+  connectForm.appendChild(actionsRow);
 
   const status = document.createElement("div");
   status.className = "status";
-  wrap.appendChild(status);
+  connectForm.appendChild(status);
 
-  saveBtn.onclick = async () => {
+  connectForm.onsubmit = async (ev) => {
+    ev.preventDefault();
     const workerUrl = urlInput.value.trim().replace(/\/$/, "");
     const apiToken = tokenInput.value.trim();
     if (!workerUrl || !apiToken) {
