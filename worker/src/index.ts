@@ -1,5 +1,6 @@
 import { SCHEMA_VERSION, type Entry, type Folder, type ResourceKind, type Workspace } from "@shelve/shared";
 import { WORKER_VERSION } from "./version";
+import { handleLinkMetadata } from "./linkMetadata";
 
 export interface Env {
   DB: D1Database;
@@ -186,6 +187,14 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (pathname === "/state" && request.method === "GET") {
     const state = await getState(env.DB);
     return Response.json(state);
+  }
+
+  // Server-side counterpart to the web app's client-side title/favicon
+  // fetch (core/lib/linkMetadata.ts) — Workers aren't subject to browser
+  // CORS, so this works for arbitrary URLs where a plain client-side
+  // fetch() from the web app usually can't. See worker/src/linkMetadata.ts.
+  if (pathname === "/link-metadata" && request.method === "GET") {
+    return handleLinkMetadata(request);
   }
 
   const match = pathname.match(RESOURCE_PATTERN);

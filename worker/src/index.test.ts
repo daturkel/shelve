@@ -1,6 +1,6 @@
 import { SCHEMA_VERSION } from "@shelve/shared";
-import { env, SELF } from "cloudflare:test";
-import { beforeAll, describe, expect, it } from "vitest";
+import { env, SELF, fetchMock } from "cloudflare:test";
+import { beforeAll, afterEach, describe, expect, it } from "vitest";
 import { WORKER_VERSION } from "./version";
 import worker, { type Env } from "./index";
 // @ts-expect-error -- raw text import, handled by the vite/esbuild layer
@@ -25,7 +25,14 @@ beforeAll(async () => {
     .map((s) => s.trim())
     .filter(Boolean);
   await env.DB.batch(statements.map((s) => env.DB.prepare(s)));
+
+  // Only /link-metadata makes an outbound fetch() — mocked here (rather than
+  // left to hit the real network) so those tests are hermetic and fast.
+  fetchMock.activate();
+  fetchMock.disableNetConnect();
 });
+
+afterEach(() => fetchMock.assertNoPendingInterceptors());
 
 function authedHeaders(token: string): HeadersInit {
   return { Authorization: `Bearer ${token}` };
@@ -369,5 +376,37 @@ describe("DELETE ?permanent=true", () => {
     const stateRes = await SELF.fetch("https://worker.test/state", { headers: authedHeaders(TOKEN) });
     const state = (await stateRes.json()) as { workspaces: Array<{ id: string; deleted_at: number | null }> };
     expect(state.workspaces.find((w) => w.id === "ws-keep-2")?.deleted_at).toBeNull();
+  });
+});
+
+describe("/link-metadata", () => {
+  // Route-level wiring only (auth, CORS, request/response plumbing) —
+  // extraction logic itself is covered in linkMetadata.test.ts.
+  function urlFor(target: string): string {
+    return `https://worker.test/link-metadata?url=${encodeURIComponent(target)}`;
+  }
+
+  it("rejects requests with no token, same as every other route", async () => {
+    const res = await SELF.fetch(urlFor("https://example.com/page"));
+    expect(res.status).toBe(401);
+  });
+
+  it("400s when the url query parameter is missing", async () => {
+    const res = await SELF.fetch("https://worker.test/link-metadata", { headers: authedHeaders(TOKEN) });
+    expect(res.status).toBe(400);
+  });
+
+  it("returns extracted metadata with CORS headers for a valid, authenticated request", async () => {
+    fetchMock
+      .get("https://example.com")
+      .intercept({ path: "/page", method: "GET" })
+      .reply(200, `<html><head><title>Example Page</title></head></html>`, {
+        headers: { "content-type": "text/html" },
+      });
+
+    const res = await SELF.fetch(urlFor("https://example.com/page"), { headers: authedHeaders(TOKEN) });
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(await res.json()).toEqual({ title: "Example Page", faviconUrl: "https://example.com/favicon.ico" });
   });
 });
