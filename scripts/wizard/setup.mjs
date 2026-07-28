@@ -12,7 +12,7 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { ask, confirm, select } from "./lib/prompt.mjs";
-import { ensurePagesProjectExists, runCommand, wranglerBin, WizardAborted } from "./lib/exec.mjs";
+import { ensurePagesProjectExists, runCommand, warnIfNotProduction, wranglerBin, WizardAborted } from "./lib/exec.mjs";
 import { readWranglerToml, writeWranglerToml } from "./lib/wranglerToml.mjs";
 import { readWizardConfig, writeWizardConfig } from "./lib/wizardConfig.mjs";
 import { randomProjectName } from "./lib/randomName.mjs";
@@ -32,8 +32,11 @@ function printSummary() {
     console.log(`API_TOKEN:         ${ui.bold(collected.apiToken)}`);
     ui.warn("Cloudflare will not show this token again — save it now (e.g. in a password manager).");
   }
-  if (collected.pagesUrl) console.log(`Web app URL:       ${ui.bold(collected.pagesUrl)}`);
-  if (collected.pagesProjectName) console.log(`Pages project:     ${collected.pagesProjectName}`);
+  if (collected.pagesUrl) console.log(`Web app URL:       ${ui.bold(collected.pagesUrl)} (this deploy)`);
+  if (collected.pagesProjectName) {
+    console.log(`Pages project:     ${collected.pagesProjectName}`);
+    console.log(`Web app URL:       ${ui.bold(`https://${collected.pagesProjectName}.pages.dev`)} (always latest)`);
+  }
 }
 
 async function setUpWorker(rl) {
@@ -257,6 +260,7 @@ async function setUpWeb(rl) {
     collected.pagesUrl = pagesUrl;
     ui.success(`Web app deployed to ${pagesUrl}`);
     console.log(`Open it, go to Settings, and enter the Worker URL/token from above.`);
+    await warnIfNotProduction(rl, wrangler, webDir, projectName, pagesUrl);
   } else {
     ui.warn("Couldn't find the Pages URL in the deploy output above.");
   }

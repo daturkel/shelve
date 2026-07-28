@@ -135,3 +135,50 @@ export async function ensurePagesProjectExists(rl, wrangler, initialProjectName)
     }
   }
 }
+
+/** `--production-branch main` (above) only takes effect when *creating* a
+ * project — it's a no-op against a project that already existed before this
+ * wizard touched it (e.g. one set up manually, or created while some other
+ * branch was checked out). A deploy from `main` then silently lands as a
+ * Preview deployment instead of Production, and the stable
+ * `<project>.pages.dev` alias never updates — with no error, just a Pages
+ * dashboard that quietly doesn't match what was just deployed.
+ *
+ * Confirms the deployment we just made (identified by its unique per-deploy
+ * URL) actually landed as Production, by re-listing deployments and checking
+ * its Environment. Warns with the fix (Pages dashboard -> Settings -> Builds
+ * & deployments -> Production branch) rather than letting it pass silently. */
+export async function warnIfNotProduction(rl, wrangler, cwd, projectName, deployUrl) {
+  if (!deployUrl) return;
+  let stdout;
+  try {
+    ({ stdout } = await runCommand(rl, {
+      description: "Checking whether that deploy landed as Production.",
+      cmd: wrangler,
+      args: ["pages", "deployment", "list", "--project-name", projectName, "--json"],
+      cwd,
+      capture: true,
+      quiet: true,
+    }));
+  } catch {
+    return; // not worth failing the whole wizard over a post-deploy sanity check
+  }
+
+  let deployments;
+  try {
+    const jsonStart = stdout.indexOf("[");
+    deployments = jsonStart === -1 ? [] : JSON.parse(stdout.slice(jsonStart));
+  } catch {
+    return;
+  }
+
+  const deployment = deployments.find((d) => d["Deployment"] === deployUrl);
+  if (!deployment || deployment["Environment"] === "Production") return;
+
+  warn(
+    `That deploy landed as Preview (branch "${deployment["Branch"]}"), not Production — ` +
+      `"${projectName}.pages.dev" still points at whatever was last deployed to this project's ` +
+      `actual production branch, not this deploy. Fix it in the Cloudflare dashboard: Pages -> ` +
+      `${projectName} -> Settings -> Builds & deployments -> Production branch -> set to "main" -> redeploy.`,
+  );
+}

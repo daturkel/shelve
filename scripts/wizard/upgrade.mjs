@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { readFileSync } from "node:fs";
 import { ask, confirm } from "./lib/prompt.mjs";
-import { ensurePagesProjectExists, runCommand, wranglerBin, WizardAborted } from "./lib/exec.mjs";
+import { ensurePagesProjectExists, runCommand, warnIfNotProduction, wranglerBin, WizardAborted } from "./lib/exec.mjs";
 import { readWranglerToml } from "./lib/wranglerToml.mjs";
 import { readWizardConfig, writeWizardConfig } from "./lib/wizardConfig.mjs";
 import * as ui from "./lib/style.mjs";
@@ -134,6 +134,7 @@ async function upgradeWeb(rl) {
   if (pagesUrl) {
     collected.pagesUrl = pagesUrl;
     ui.success(`Web app deployed to ${pagesUrl}`);
+    await warnIfNotProduction(rl, wrangler, webDir, projectName, pagesUrl);
   } else {
     ui.warn("Couldn't find the Pages URL in the deploy output above.");
   }
