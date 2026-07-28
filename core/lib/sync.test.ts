@@ -70,6 +70,18 @@ describe("mergeArray", () => {
     const merged = mergeArray(local, remote);
     expect(merged[0].deleted_at).toBe(20);
   });
+
+  it("drops a local soft-deleted record that's absent from a full remote snapshot (permanently deleted elsewhere)", () => {
+    const local = [ws({ id: "a", updated_at: 20, deleted_at: 20 })];
+    const merged = mergeArray(local, []);
+    expect(merged).toEqual([]);
+  });
+
+  it("keeps a local-only, never-soft-deleted record absent from remote (not yet pushed)", () => {
+    const local = [ws({ id: "a", updated_at: 20, deleted_at: null })];
+    const merged = mergeArray(local, []);
+    expect(merged).toEqual(local);
+  });
 });
 
 describe("mergeState", () => {

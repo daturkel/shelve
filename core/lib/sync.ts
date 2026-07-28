@@ -8,10 +8,28 @@ import type { State } from "./storage";
  * on pull, only on an explicit pushDelete() call. See design doc for why
  * (a pull-driven delete-by-omission reintroduces the wipe risk we moved
  * away from full-snapshot writes to avoid).
+ *
+ * One narrow exception: a local record that's already soft-deleted and
+ * absent from a full remote snapshot is dropped, not kept. GET /state
+ * always includes soft-deleted rows (see worker's getState()), so the only
+ * way an already-soft-deleted local record can be missing from it is that
+ * some other device permanently deleted it — pushPermanentDelete() hard-
+ * removes the row, and that removal has no `updated_at` to win a merge
+ * with, so without this it would resurrect forever on every device except
+ * the one that deleted it. Safe specifically because it's gated on
+ * already-soft-deleted: a local-only *un-deleted* record absent from remote
+ * (e.g. created offline, not pushed yet) is still kept untouched.
  */
-export function mergeArray<T extends { id: string; updated_at: number }>(local: T[], remote: T[]): T[] {
+export function mergeArray<T extends { id: string; updated_at: number; deleted_at: number | null }>(
+  local: T[],
+  remote: T[],
+): T[] {
+  const remoteIds = new Set(remote.map((item) => item.id));
   const merged = new Map<string, T>();
-  for (const item of local) merged.set(item.id, item);
+  for (const item of local) {
+    if (item.deleted_at !== null && !remoteIds.has(item.id)) continue;
+    merged.set(item.id, item);
+  }
   for (const item of remote) {
     const existing = merged.get(item.id);
     if (!existing || item.updated_at > existing.updated_at) {
@@ -94,11 +112,18 @@ async function apiFetch(path: string, init: RequestInit = {}): Promise<Response 
         "Content-Type": "application/json",
       },
     });
-    setSyncStatus(res.ok ? "connected" : "error");
+    // /health is a diagnostic check (checkCompatibility's gate above, and
+    // the Settings page's own connection indicator) rather than an actual
+    // sync operation — it shouldn't move the app-wide connected/error
+    // status. On the web app, that status is wired to onSyncStatusChange
+    // -> a full app render(); since Settings re-issues a /health check on
+    // every mount, letting it flip status here would re-render Settings,
+    // which re-checks health, which flips status again — an infinite loop.
+    if (path !== "/health") setSyncStatus(res.ok ? "connected" : "error");
     return res;
   } catch (e) {
     console.error("shelve sync: request failed", path, e);
-    setSyncStatus("error");
+    if (path !== "/health") setSyncStatus("error");
     return null;
   }
 }
