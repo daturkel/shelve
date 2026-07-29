@@ -252,7 +252,6 @@ async function render() {
 
     try {
       await setConfig({ workerUrl, apiToken });
-      if (isSwitchingWorker) await resetState();
     } catch (e) {
       status.textContent = `Couldn't save: ${e instanceof Error ? e.message : String(e)}`;
       status.className = "status error";
@@ -271,6 +270,10 @@ async function render() {
       status.className = "status error";
       return;
     }
+    // Only reset local state once the new Worker is confirmed reachable —
+    // resetting before this point would wipe local data even when the
+    // switch fails (e.g. a typo'd URL), with no way back.
+    if (isSwitchingWorker) await resetState();
 
     const workspaceCount = remote.workspaces.filter((w) => w.deleted_at === null).length;
     const folderCount = remote.folders.filter((f) => f.deleted_at === null).length;
