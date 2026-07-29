@@ -111,7 +111,7 @@ export async function buildSettings(uiState: UiState, onClose: () => void): Prom
 
   function setupDocLink(text: string, anchor: string): HTMLAnchorElement {
     const link = document.createElement("a");
-    link.href = `https://github.com/daturkel/shelve/blob/main/SETUP.md#${anchor}`;
+    link.href = `https://github.com/daturkel/shelve/blob/main/docs/SETUP.md#${anchor}`;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
     link.textContent = text;

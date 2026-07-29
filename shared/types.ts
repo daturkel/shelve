@@ -38,7 +38,7 @@ export type ResourceKind = "workspaces" | "folders" | "entries";
 
 /** The shape both core/lib/linkMetadata.ts's client-side fetch and
  * worker/src/linkMetadata.ts's server-side proxy (GET /link-metadata,
- * used by the web app — see ARCHITECTURE.md) return. Defined once here
+ * used by the web app — see docs/ARCHITECTURE.md) return. Defined once here
  * rather than independently in each, so the wire contract between them
  * can't silently drift, same rationale as Workspace/Folder/Entry above. */
 export interface LinkMetadata {

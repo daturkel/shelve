@@ -1,0 +1,18 @@
+# Known gaps
+
+Things that are missing or incomplete. Not blocking, just not built yet.
+
+- **Notes UI** — note-only entries work end to end at the data layer, but there's no UI to create or edit them yet.
+- **No tags or per-entry screenshots.**
+- **No Chrome Web Store listing** — load-unpacked only.
+- **No automatic trash expiry.** Permanent delete is manual (per-item, bulk, or empty-trash); a scheduled auto-expiry would need a Cron Trigger on the Worker, which doesn't exist yet.
+- **Switching a device's Worker URL/token doesn't clear local state.** The next sync merges old local data into the new Worker instead of starting fresh.
+- **Thin test coverage on the DOM-orchestration layer** (`core/ui/*.ts`, extension options/popup/background). `core/lib/*` is well unit-tested; a small Playwright e2e suite covers two smoke flows (folder/link creation, entry multi-select + delete). Drag-reorder, tabs-panel multi-select, and trash restore have no automated coverage.
+- **No keyboard-shortcut help modal.** Not worth it yet — there's only `/` for search and Escape to clear it.
+- **No touch drag-and-drop on the web app.** Desktop drag-and-drop reordering works; touch devices can still create/rename/delete/move items via buttons and modals, just not reorder by dragging.
+- **No PWA support on the web app** — no install manifest, no service worker, no offline support beyond the browser's HTTP cache.
+- **Multi-tab write races on the web app, partially mitigated.** Two tabs saving at the same instant still last-write-wins with no true merge; a `BroadcastChannel` reconciliation keeps tabs from silently diverging, but doesn't add real conflict resolution.
+- **No user-visible error handling for storage-write failures** in most of the folder-browser UI. If a write fails (storage quota, blocked transaction), the change appears to work and then reverts on reload. The settings screens' Save/Disconnect actions handle this; the rest of the UI doesn't yet.
+- **`npm run setup`/`npm run upgrade` need an interactive TTY** — no non-interactive mode for scripted deployments.
+- **The wizard parses `wrangler` CLI output** rather than using a stable API, so a future Wrangler output-format change could break it. Failures degrade to a warning rather than a crash.
+- **A fresh or wiped device can resurrect a deleted default workspace.** Local auto-create always stamps the current time, so it can out-recency an intentional soft-delete of the same workspace on first sync. Workaround: keep your real default workspace's id as `"default"` so there's nothing left to collide with.

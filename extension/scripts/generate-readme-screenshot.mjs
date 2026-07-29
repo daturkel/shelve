@@ -158,7 +158,7 @@ async function main() {
       }
 
       const state = { workspaces: [workspace], folders: outFolders, entries: outEntries };
-      await chrome.storage.local.set({ shelve_state: state });
+      await chrome.storage.local.set({ shelve_state: state, shelve_ui_state: { theme: "dark" } });
       return { folders: outFolders.length, entries: outEntries.length };
     }, SAMPLE_DATA);
     console.log(`Seeded ${seeded.folders} folders, ${seeded.entries} entries.`);

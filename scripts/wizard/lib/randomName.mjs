@@ -2,7 +2,7 @@
 // project name — Pages project names are unique across *every* Cloudflare
 // account, not just the current one, so a fixed suggestion like "shelve-web"
 // is close to guaranteed to already be taken by someone else's deployment
-// (including this project's own — see README.md/SETUP.md). Randomizing
+// (including this project's own — see README.md/docs/SETUP.md). Randomizing
 // the suggestion doesn't guarantee availability either, but it's a much
 // better starting point than a name every self-hoster would otherwise try
 // first, and ensurePagesProjectExists() (see exec.mjs) recovers gracefully
