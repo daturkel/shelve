@@ -128,6 +128,10 @@ The extension's options page and the web app's settings screen both surface this
 `core/lib/sync.ts`'s `mergeArray()` implements the pull side: for each id present in either local or remote, keep whichever has the newer `updated_at`; records present only locally are always kept (never deleted by a pull).
 `pushAll()` re-pushes every local record on each app load — idempotent (upsert-by-recency makes re-sending unchanged data a no-op), and it exists specifically to catch anything created locally that never successfully synced (most notably the default workspace on first run, which nothing else explicitly pushes).
 
+## Other Worker routes
+
+`GET /link-metadata?url=<url>` (`worker/src/linkMetadata.ts`) is a stateless utility route, not part of the sync data model above — it fetches an arbitrary URL server-side and extracts a title/favicon (`shared/types.ts`'s `LinkMetadata`) via `HTMLRewriter`, for the web app's "Add link" flow. It exists because that fetch is CORS-blocked from a plain web page but not from the extension (exempt via `manifest.json`), so the web app proxies through the Worker instead — see `core/lib/linkMetadata.ts`'s `setLinkMetadataFetcher()` and `web/src/webLinkMetadata.ts`. Same `Bearer` auth as every other route.
+
 ## Auth
 
 A single shared secret.
@@ -171,16 +175,14 @@ What's still extension-only and stays in `extension/`: `newtab/tabsPanel.ts` (th
 
 ## Web app architecture
 
-`web/` is a single-page Vite app (unlike the extension's multi-entry newtab/popup/options build) sharing `core/`'s storage/sync/UI code, with three web-specific files:
+`web/` is a single-page Vite app (unlike the extension's multi-entry newtab/popup/options build) sharing `core/`'s storage/sync/UI code, with four web-specific files:
 
 - **`web/src/webStore.ts`** — the `Store` implementation, backed by IndexedDB rather than `localStorage`: `Store`'s interface is already `Promise`-based (designed around `chrome.storage.local`'s async shape), so this is a drop-in backend swap, and it sidesteps `localStorage`'s small (~5-10MB) quota and synchronous `QuotaExceededError` throw in favor of IndexedDB's much larger best-effort browser quota. It also handles a gap IndexedDB doesn't solve on its own: unlike `localStorage`, IndexedDB has no native cross-tab change event, so two browser tabs of the web app open at once would otherwise silently diverge with zero feedback. `webStore.set()` posts a message on a `BroadcastChannel` after every write; `web/src/main.ts` listens and reloads+re-renders state when another tab changes it — not real conflict merging (still last-write-wins if two tabs save in the same instant), but it closes the _silent, indefinite_ divergence case.
 - **`web/src/webTabActions.ts`** — the `TabActions` implementation described above.
-- **`web/src/webLinkMetadata.ts`** — the `fetchLinkMetadata` implementation installed via `core/lib/linkMetadata.ts`'s `setLinkMetadataFetcher()` (same module-level-singleton shape as `Store`/`setStore()`). See below for why this exists.
+- **`web/src/webLinkMetadata.ts`** — the `fetchLinkMetadata` implementation installed via `core/lib/linkMetadata.ts`'s `setLinkMetadataFetcher()` (same module-level-singleton shape as `Store`/`setStore()`). See "Other Worker routes" above for why this exists.
 - **`web/src/settings.ts`** — the web app's settings/connect screen (Worker URL/token, theme, backup and Toby import/export), modeled on `extension/src/options/main.ts` but reached via `AppContext.openSettings` toggling a local view-state variable in `main.ts` rather than a separate page — the same pattern `extension/src/popup/main.ts` already uses for its own local `view` state outside any `AppContext`. Omits the extension-only `showOnNewTab`/`closeTabOnSave` toggles (meaningless on web) and adds a Disconnect action (no separate options page exists on web to recover from a bad token otherwise). Saving new Worker settings triggers a full page reload rather than an in-place refresh, since `core/lib/sync.ts`'s `checkCompatibility()` result is memoized for the page's lifetime with no cache-bust export.
 
 `web/src/style.css` imports `core/ui/palette.css` and reuses the extension's component classes, with one genuine responsive rework: the `.rail` sidebar (a fixed 180px desktop column in the extension) becomes a `position: fixed` slide-in drawer below a 768px breakpoint, reusing the existing `uiState.leftCollapsed` toggle rather than inventing separate mobile state — `main.ts` forces it closed on every load below that breakpoint regardless of a prior desktop session's persisted value, matching how virtually every mobile drawer nav starts closed.
-
-The web app's manual "Add link" flow auto-fetches a title/favicon the same way the extension does, but through a different path: the extension's `core/lib/linkMetadata.ts`'s `directFetchLinkMetadata()` fetches the target URL straight from the browser, which works there because `manifest.json`'s `host_permissions` exempts it from CORS — but a plain web page has no such exemption, and most ordinary sites don't send permissive CORS headers on their HTML responses, so that same direct fetch fails for most URLs on web. Instead, `web/src/webLinkMetadata.ts` calls the Worker's `GET /link-metadata?url=` route (`worker/src/linkMetadata.ts`), which fetches server-side — Workers aren't subject to browser CORS at all — and extracts title (preferring `og:title`, then `twitter:title`, then `<title>`) and favicon via the native `HTMLRewriter` streaming API, capping how much of the response it reads rather than buffering the whole thing. Same bearer-token auth as every other route (no special-casing — arbitrary-URL server-side fetching is exactly the kind of route that shouldn't be an open proxy), and the same best-effort-degrades-to-nulls contract as the direct-fetch version, so the manual-title fallback still exists for whatever it can't find. The extension keeps using the direct fetch unconditionally — it's strictly better there (no extra hop, no dependency on Worker configuration/availability for a feature that has none today).
 
 Deployment is optional and separate from the Worker: a static build (`npm run build --workspace=web`) to Cloudflare Pages, with `web/public/_headers` setting a CSP (`img-src`/`connect-src` allow arbitrary `https:` origins, since favicons and the Worker URL are both runtime-configured, not knowable at build time). No build-time environment variables — the Worker URL/token are entered in the deployed app's own settings screen, so one generic build serves every self-hoster.
 
@@ -200,10 +202,11 @@ Deployment is optional and separate from the Worker: a static build (`npm run bu
 ```
 shelve/
   shared/
-    types.ts               # Workspace/Folder/Entry/ResourceKind
+    types.ts               # Workspace/Folder/Entry/ResourceKind/LinkMetadata
   worker/
     src/index.ts            # routes, auth, upsert-by-recency, soft-delete
     src/index.test.ts
+    src/linkMetadata.ts      # GET /link-metadata — server-side title/favicon fetch for the web app
     migrations/               # numbered D1 schema migrations (wrangler d1 migrations apply), fresh installs and upgrades alike
     wrangler.toml.example    # committed template — real wrangler.toml is gitignored
   core/                      # platform-agnostic logic + UI, shared by extension and web
@@ -221,6 +224,7 @@ shelve/
     src/main.ts               # wiring (mirrors extension/src/newtab/main.ts, minus chrome.tabs-only pieces)
     src/webStore.ts            # Store via IndexedDB + BroadcastChannel cross-tab reconciliation
     src/webTabActions.ts       # TabActions via window.open; close() is a no-op
+    src/webLinkMetadata.ts     # fetchLinkMetadata via the Worker's /link-metadata proxy
     src/settings.ts            # settings/connect screen (no separate options page on web)
     public/_headers            # Cloudflare Pages CSP
     e2e/                       # Playwright smoke suite against a plain preview server

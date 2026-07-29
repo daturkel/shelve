@@ -1,7 +1,10 @@
-export interface LinkMetadata {
-  title: string | null;
-  faviconUrl: string | null;
-}
+// Defined once in shared/ (rather than here) so the wire contract with
+// worker/src/linkMetadata.ts's server-side counterpart can't silently
+// drift — see shared/types.ts's doc comment. Re-exported under this
+// module's own path since every existing import site already expects
+// LinkMetadata to live at "@shelve/core/lib/linkMetadata".
+import type { LinkMetadata } from "@shelve/shared";
+export type { LinkMetadata };
 
 /** Which implementation `fetchLinkMetadata()` (below) delegates to —
  * swappable per platform, same module-level-singleton-set-once-at-startup

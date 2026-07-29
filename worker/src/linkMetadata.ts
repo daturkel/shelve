@@ -5,18 +5,14 @@
  * page has no such exemption, and most ordinary sites don't send permissive
  * CORS headers on their HTML responses, so a plain client-side fetch()
  * fails for the vast majority of URLs. Workers aren't subject to browser
- * CORS at all, so this fetches server-side and hands back the same shape
- * core/lib/linkMetadata.ts's LinkMetadata already defines.
+ * CORS at all, so this fetches server-side and hands back the same
+ * LinkMetadata shape (shared/types.ts) core/lib/linkMetadata.ts uses.
  *
  * Same best-effort contract as the client-side version: any failure
  * (network error, timeout, non-HTML response) degrades to nulls rather than
  * an error response, since the caller's fallback (ask for a title manually)
  * is designed around "didn't find one," not around distinguishing *why*. */
-
-export interface LinkMetadata {
-  title: string | null;
-  faviconUrl: string | null;
-}
+import type { LinkMetadata } from "@shelve/shared";
 
 const FETCH_TIMEOUT_MS = 5000;
 // <head> content (title/meta/link tags) is always near the top of a
