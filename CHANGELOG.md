@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-29
+
 ### Added
 
 - The web app's manual "Add link" flow now auto-fetches a title and favicon like the extension does, via a new Worker route (`GET /link-metadata`, `worker/src/linkMetadata.ts`) that fetches the target URL server-side using the native `HTMLRewriter` API — Workers aren't subject to browser CORS, unlike a plain client-side fetch from a web page, which fails for most ordinary sites. Prefers `og:title`/`twitter:title` over `<title>` when present. Same bearer-token auth as every other route, and the same best-effort-degrades-to-nulls contract the direct-fetch version already had, so the manual-title fallback still exists for whatever it can't find. The extension is unchanged — its direct fetch already works better there (no extra hop, no Worker dependency for a feature that has none today) — via a new swappable seam in `core/lib/linkMetadata.ts` (`setLinkMetadataFetcher()`, same shape as `Store`/`setStore()`).
