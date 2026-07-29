@@ -5,12 +5,14 @@ import {
   isWorkerSchemaCompatible,
   mergeState,
   pushAll,
+  buildSwitchWarning,
 } from "@shelve/core/lib/sync";
 import { getUiState, setUiState, type UiState } from "@shelve/core/lib/uiState";
-import { loadState, saveState } from "@shelve/core/lib/storage";
+import { loadState, saveState, resetState } from "@shelve/core/lib/storage";
 import { importToby, exportToby, isTobyExport } from "@shelve/core/lib/tobyImport";
 import { downloadJson, readFileAsJson, isRemoteState } from "@shelve/core/lib/backupFile";
 import { applyTheme } from "@shelve/core/lib/theme";
+import { showConfirm } from "@shelve/core/lib/modal";
 import { setStore } from "@shelve/core/lib/store";
 import { chromeStore } from "../lib/chromeStore";
 
@@ -235,6 +237,17 @@ async function render() {
       status.className = "status error";
       return;
     }
+
+    // Switching to a different Worker URL points this device at an
+    // unrelated backend. Without a reset, the next sync pull merges this
+    // device's old local data into the new Worker instead of starting
+    // clean.
+    const isSwitchingWorker = !!config?.workerUrl && config.workerUrl !== workerUrl;
+    if (isSwitchingWorker) {
+      const ok = await showConfirm(await buildSwitchWarning(), "Switch");
+      if (!ok) return;
+    }
+
     try {
       await setConfig({ workerUrl, apiToken });
     } catch (e) {
@@ -255,6 +268,10 @@ async function render() {
       status.className = "status error";
       return;
     }
+    // Only reset local state once the new Worker is confirmed reachable —
+    // resetting before this point would wipe local data even when the
+    // switch fails (e.g. a typo'd URL), with no way back.
+    if (isSwitchingWorker) await resetState();
 
     const workspaceCount = remote.workspaces.filter((w) => w.deleted_at === null).length;
     const folderCount = remote.folders.filter((f) => f.deleted_at === null).length;

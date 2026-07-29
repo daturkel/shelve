@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mergeArray, mergeState, fetchWorkerHealth, fetchRemoteState, isWorkerSchemaCompatible } from "./sync";
+import {
+  mergeArray,
+  mergeState,
+  countUnsyncedState,
+  fetchWorkerHealth,
+  fetchRemoteState,
+  isWorkerSchemaCompatible,
+} from "./sync";
 import type { State } from "./storage";
 import { SCHEMA_VERSION, type Workspace } from "@shelve/shared";
 
@@ -113,6 +120,38 @@ describe("mergeState", () => {
     const merged = mergeState(local, remote);
     expect(merged.workspaces).toHaveLength(1);
     expect(merged.workspaces[0].id).toBe("not-yet-pushed");
+  });
+});
+
+describe("countUnsyncedState", () => {
+  it("counts a local-only record as unsynced", () => {
+    const local: State = { workspaces: [ws({ id: "a", updated_at: 5 })], folders: [], entries: [] };
+    const remote = { workspaces: [], folders: [], entries: [] };
+    expect(countUnsyncedState(local, remote).workspaces).toBe(1);
+  });
+
+  it("counts a locally-newer record as unsynced", () => {
+    const local: State = { workspaces: [ws({ id: "a", updated_at: 5 })], folders: [], entries: [] };
+    const remote = { workspaces: [ws({ id: "a", updated_at: 1 })], folders: [], entries: [] };
+    expect(countUnsyncedState(local, remote).workspaces).toBe(1);
+  });
+
+  it("doesn't count a record remote already matches or exceeds", () => {
+    const local: State = { workspaces: [ws({ id: "a", updated_at: 5 })], folders: [], entries: [] };
+    const remoteSame = { workspaces: [ws({ id: "a", updated_at: 5 })], folders: [], entries: [] };
+    const remoteNewer = { workspaces: [ws({ id: "a", updated_at: 9 })], folders: [], entries: [] };
+    expect(countUnsyncedState(local, remoteSame).workspaces).toBe(0);
+    expect(countUnsyncedState(local, remoteNewer).workspaces).toBe(0);
+  });
+
+  it("counts each of workspaces/folders/entries independently", () => {
+    const local: State = {
+      workspaces: [ws({ id: "w", updated_at: 5 })],
+      folders: [],
+      entries: [],
+    };
+    const remote = { workspaces: [], folders: [], entries: [] };
+    expect(countUnsyncedState(local, remote)).toEqual({ workspaces: 1, folders: 0, entries: 0 });
   });
 });
 
@@ -265,5 +304,46 @@ describe("sync's compatibility gate", () => {
     const healthCalls = fetchMock.mock.calls.filter(([url]) => (url as string).endsWith("/health"));
     expect(healthCalls).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("re-checks compatibility after switching to a different Worker, rather than reusing the old Worker's cached verdict", async () => {
+    // beforeEach configures "https://worker.test" as the initial Worker,
+    // and it reports a compatible schema — this is the "old" Worker whose
+    // verdict must not leak into a request made after switching.
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === "https://worker.test/health") {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, version: "0.1.0", schemaVersion: SCHEMA_VERSION }),
+        } as Response;
+      }
+      if (url === "https://worker-b.test/health") {
+        return {
+          ok: true,
+          json: async () => ({ ok: true, version: "0.1.0", schemaVersion: SCHEMA_VERSION - 1 }),
+        } as Response;
+      }
+      return { ok: true, json: async () => ({ ok: true, applied: true }) } as Response;
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const fresh = await import("./sync");
+    // Primes the compatibility cache against the old, compatible Worker.
+    await fresh.pushResource("workspaces", { id: "a", updated_at: 1 });
+
+    const { setConfig } = await import("./config");
+    await setConfig({ workerUrl: "https://worker-b.test", apiToken: "tok" });
+
+    await fresh.pushResource("workspaces", { id: "b", updated_at: 1 });
+
+    // The new Worker's schema is behind, so its health must actually be
+    // checked (not assumed compatible from the old Worker's cached
+    // verdict), and the write to it must be skipped.
+    const newWorkerHealthCalls = fetchMock.mock.calls.filter(([url]) => url === "https://worker-b.test/health");
+    expect(newWorkerHealthCalls).toHaveLength(1);
+    const newWorkerWrites = fetchMock.mock.calls.filter(([url]) =>
+      (url as string).includes("worker-b.test/workspaces"),
+    );
+    expect(newWorkerWrites).toHaveLength(0);
   });
 });

@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { State } from "./storage";
 import {
   loadState,
+  resetState,
+  saveState,
   createWorkspace,
   renameWorkspace,
   deleteWorkspace,
@@ -58,6 +60,26 @@ describe("loadState", () => {
     setStore(createMemoryStore());
     const deviceB = await loadState();
     expect(deviceA.workspaces[0].id).toBe(deviceB.workspaces[0].id);
+  });
+});
+
+describe("resetState", () => {
+  beforeEach(() => setStore(createMemoryStore()));
+
+  it("overwrites existing state with a fresh single 'Home' workspace", async () => {
+    const state = await loadState();
+    createWorkspace(state, "Work");
+    createFolder(state, state.workspaces[0].id, "Reading list");
+    await saveState(state);
+
+    const fresh = await resetState();
+    expect(fresh.workspaces).toHaveLength(1);
+    expect(fresh.workspaces[0].name).toBe("Home");
+    expect(fresh.folders).toEqual([]);
+    expect(fresh.entries).toEqual([]);
+
+    const reloaded = await loadState();
+    expect(reloaded).toEqual(fresh);
   });
 });
 

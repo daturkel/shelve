@@ -1,6 +1,6 @@
 import { SCHEMA_VERSION, type Entry, type Folder, type ResourceKind, type Workspace } from "@shelve/shared";
 import { getConfig } from "./config";
-import type { State } from "./storage";
+import { loadState, type State } from "./storage";
 
 /**
  * Merge one resource array: union by id, newer `updated_at` wins on
@@ -53,6 +53,61 @@ export function mergeState(local: State, remote: RemoteState): State {
   };
 }
 
+/** Counts local records a given remote snapshot doesn't already reflect —
+ * missing entirely, or present but with an older `updated_at`. Same
+ * "newer wins" rule as mergeArray, run in reverse: this asks what a
+ * pull-and-merge *from* that remote would leave sitting only in local,
+ * i.e. what's genuinely at risk of being discarded if local state were
+ * wiped without ever having reached that remote. */
+function countUnsyncedArray<T extends { id: string; updated_at: number }>(local: T[], remote: T[]): number {
+  const remoteById = new Map(remote.map((item) => [item.id, item]));
+  return local.filter((item) => {
+    const match = remoteById.get(item.id);
+    return !match || item.updated_at > match.updated_at;
+  }).length;
+}
+
+export interface UnsyncedCounts {
+  workspaces: number;
+  folders: number;
+  entries: number;
+}
+
+export function countUnsyncedState(local: State, remote: RemoteState): UnsyncedCounts {
+  return {
+    workspaces: countUnsyncedArray(local.workspaces, remote.workspaces),
+    folders: countUnsyncedArray(local.folders, remote.folders),
+    entries: countUnsyncedArray(local.entries, remote.entries),
+  };
+}
+
+/** Builds the confirmation text for switching to a different Worker URL.
+ * Checks the *old* Worker (whatever's still the active config when this
+ * is called — the caller must invoke it before overwriting config with
+ * the new URL/token) for whether it already has everything currently
+ * sitting in local state, so the warning says what's actually at risk
+ * instead of a blanket "might lose something." Always returns a warning —
+ * even when nothing would be lost, since the user still needs a chance to
+ * back out of the reset itself — it only tailors the wording. Falls back
+ * to a generic warning if the old Worker can't be reached to check. */
+export async function buildSwitchWarning(): Promise<string> {
+  const oldRemote = await fetchRemoteState();
+  if (!oldRemote) {
+    return "Switching Worker URLs clears this device's local data. The Worker you're leaving couldn't be reached to confirm it already has everything, so back it up first if you're unsure — use Export Backup below. Continue?";
+  }
+  const local = await loadState();
+  const counts = countUnsyncedState(local, oldRemote);
+  const total = counts.workspaces + counts.folders + counts.entries;
+  if (total === 0) {
+    return "Switching Worker URLs clears this device's local data. The Worker you're leaving already has everything currently on this device, so nothing should be lost. Continue?";
+  }
+  const parts: string[] = [];
+  if (counts.workspaces) parts.push(`${counts.workspaces} workspace${counts.workspaces === 1 ? "" : "s"}`);
+  if (counts.folders) parts.push(`${counts.folders} folder${counts.folders === 1 ? "" : "s"}`);
+  if (counts.entries) parts.push(`${counts.entries} link${counts.entries === 1 ? "" : "s"}`);
+  return `Switching Worker URLs clears this device's local data. This device has ${parts.join(", ")} not yet synced to the Worker you're leaving — they'll be lost unless you export a backup first. Continue?`;
+}
+
 export type SyncStatus = "unconfigured" | "connected" | "error";
 
 // Per-page-load, in-memory only (same scoping as `compatibility` below) —
@@ -95,7 +150,7 @@ async function apiFetch(path: string, init: RequestInit = {}): Promise<Response 
   // write columns the Worker silently drops, or merge in remote records
   // missing a field the local client expects, quietly losing data.
   if (path !== "/health") {
-    const status = await checkCompatibility();
+    const status = await checkCompatibility(config.workerUrl);
     if (status === "incompatible") {
       console.warn(`shelve sync: skipping ${path} — connected Worker's schema is out of date`);
       setSyncStatus("error");
@@ -165,10 +220,20 @@ export function isWorkerSchemaCompatible(health: WorkerHealth): boolean {
 // deliberately fails open: only a *confirmed* outdated schema blocks
 // requests, consistent with sync's existing best-effort, never-blocking
 // failure handling.
+//
+// Keyed by workerUrl, not just "has this run yet": Settings can point
+// this device at a different Worker mid-session (see buildSwitchWarning
+// above) without a page reload in between on the extension's options
+// page. Without the key, a verdict cached for the old Worker would keep
+// gating every request to the new one, either wrongly blocking a
+// compatible new Worker or — worse — waving through writes to an
+// incompatible one because the old Worker had happened to check out.
 let compatibility: Promise<"compatible" | "incompatible" | "unknown"> | null = null;
+let compatibilityWorkerUrl: string | null = null;
 
-async function checkCompatibility(): Promise<"compatible" | "incompatible" | "unknown"> {
-  if (!compatibility) {
+async function checkCompatibility(workerUrl: string): Promise<"compatible" | "incompatible" | "unknown"> {
+  if (!compatibility || compatibilityWorkerUrl !== workerUrl) {
+    compatibilityWorkerUrl = workerUrl;
     compatibility = fetchWorkerHealth().then((health) =>
       health ? (isWorkerSchemaCompatible(health) ? "compatible" : "incompatible") : "unknown",
     );

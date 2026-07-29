@@ -23,6 +23,14 @@ export async function loadState(): Promise<State> {
   return initState();
 }
 
+/** Overwrites local state with a fresh single-workspace state, as if this
+ * were a brand-new device. Used when pointing at a different Worker URL:
+ * without this, the next sync pull merges the old backend's local data
+ * into the new backend instead of starting clean. */
+export async function resetState(): Promise<State> {
+  return initState();
+}
+
 async function initState(): Promise<State> {
   const now = Date.now();
   const home: Workspace = {
