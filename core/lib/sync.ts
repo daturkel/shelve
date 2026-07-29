@@ -53,6 +53,34 @@ export function mergeState(local: State, remote: RemoteState): State {
   };
 }
 
+/** Counts local records a given remote snapshot doesn't already reflect —
+ * missing entirely, or present but with an older `updated_at`. Same
+ * "newer wins" rule as mergeArray, run in reverse: this asks what a
+ * pull-and-merge *from* that remote would leave sitting only in local,
+ * i.e. what's genuinely at risk of being discarded if local state were
+ * wiped without ever having reached that remote. */
+function countUnsyncedArray<T extends { id: string; updated_at: number }>(local: T[], remote: T[]): number {
+  const remoteById = new Map(remote.map((item) => [item.id, item]));
+  return local.filter((item) => {
+    const match = remoteById.get(item.id);
+    return !match || item.updated_at > match.updated_at;
+  }).length;
+}
+
+export interface UnsyncedCounts {
+  workspaces: number;
+  folders: number;
+  entries: number;
+}
+
+export function countUnsyncedState(local: State, remote: RemoteState): UnsyncedCounts {
+  return {
+    workspaces: countUnsyncedArray(local.workspaces, remote.workspaces),
+    folders: countUnsyncedArray(local.folders, remote.folders),
+    entries: countUnsyncedArray(local.entries, remote.entries),
+  };
+}
+
 export type SyncStatus = "unconfigured" | "connected" | "error";
 
 // Per-page-load, in-memory only (same scoping as `compatibility` below) —

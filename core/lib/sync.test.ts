@@ -1,5 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { mergeArray, mergeState, fetchWorkerHealth, fetchRemoteState, isWorkerSchemaCompatible } from "./sync";
+import {
+  mergeArray,
+  mergeState,
+  countUnsyncedState,
+  fetchWorkerHealth,
+  fetchRemoteState,
+  isWorkerSchemaCompatible,
+} from "./sync";
 import type { State } from "./storage";
 import { SCHEMA_VERSION, type Workspace } from "@shelve/shared";
 
@@ -113,6 +120,38 @@ describe("mergeState", () => {
     const merged = mergeState(local, remote);
     expect(merged.workspaces).toHaveLength(1);
     expect(merged.workspaces[0].id).toBe("not-yet-pushed");
+  });
+});
+
+describe("countUnsyncedState", () => {
+  it("counts a local-only record as unsynced", () => {
+    const local: State = { workspaces: [ws({ id: "a", updated_at: 5 })], folders: [], entries: [] };
+    const remote = { workspaces: [], folders: [], entries: [] };
+    expect(countUnsyncedState(local, remote).workspaces).toBe(1);
+  });
+
+  it("counts a locally-newer record as unsynced", () => {
+    const local: State = { workspaces: [ws({ id: "a", updated_at: 5 })], folders: [], entries: [] };
+    const remote = { workspaces: [ws({ id: "a", updated_at: 1 })], folders: [], entries: [] };
+    expect(countUnsyncedState(local, remote).workspaces).toBe(1);
+  });
+
+  it("doesn't count a record remote already matches or exceeds", () => {
+    const local: State = { workspaces: [ws({ id: "a", updated_at: 5 })], folders: [], entries: [] };
+    const remoteSame = { workspaces: [ws({ id: "a", updated_at: 5 })], folders: [], entries: [] };
+    const remoteNewer = { workspaces: [ws({ id: "a", updated_at: 9 })], folders: [], entries: [] };
+    expect(countUnsyncedState(local, remoteSame).workspaces).toBe(0);
+    expect(countUnsyncedState(local, remoteNewer).workspaces).toBe(0);
+  });
+
+  it("counts each of workspaces/folders/entries independently", () => {
+    const local: State = {
+      workspaces: [ws({ id: "w", updated_at: 5 })],
+      folders: [],
+      entries: [],
+    };
+    const remote = { workspaces: [], folders: [], entries: [] };
+    expect(countUnsyncedState(local, remote)).toEqual({ workspaces: 1, folders: 0, entries: 0 });
   });
 });
 
