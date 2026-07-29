@@ -1,6 +1,6 @@
 import { SCHEMA_VERSION, type Entry, type Folder, type ResourceKind, type Workspace } from "@shelve/shared";
 import { getConfig } from "./config";
-import type { State } from "./storage";
+import { loadState, type State } from "./storage";
 
 /**
  * Merge one resource array: union by id, newer `updated_at` wins on
@@ -79,6 +79,33 @@ export function countUnsyncedState(local: State, remote: RemoteState): UnsyncedC
     folders: countUnsyncedArray(local.folders, remote.folders),
     entries: countUnsyncedArray(local.entries, remote.entries),
   };
+}
+
+/** Builds the confirmation text for switching to a different Worker URL.
+ * Checks the *old* Worker (whatever's still the active config when this
+ * is called — the caller must invoke it before overwriting config with
+ * the new URL/token) for whether it already has everything currently
+ * sitting in local state, so the warning says what's actually at risk
+ * instead of a blanket "might lose something." Always returns a warning —
+ * even when nothing would be lost, since the user still needs a chance to
+ * back out of the reset itself — it only tailors the wording. Falls back
+ * to a generic warning if the old Worker can't be reached to check. */
+export async function buildSwitchWarning(): Promise<string> {
+  const oldRemote = await fetchRemoteState();
+  if (!oldRemote) {
+    return "Switching Worker URLs clears this device's local data. The Worker you're leaving couldn't be reached to confirm it already has everything, so back it up first if you're unsure — use Export Backup below. Continue?";
+  }
+  const local = await loadState();
+  const counts = countUnsyncedState(local, oldRemote);
+  const total = counts.workspaces + counts.folders + counts.entries;
+  if (total === 0) {
+    return "Switching Worker URLs clears this device's local data. The Worker you're leaving already has everything currently on this device, so nothing should be lost. Continue?";
+  }
+  const parts: string[] = [];
+  if (counts.workspaces) parts.push(`${counts.workspaces} workspace${counts.workspaces === 1 ? "" : "s"}`);
+  if (counts.folders) parts.push(`${counts.folders} folder${counts.folders === 1 ? "" : "s"}`);
+  if (counts.entries) parts.push(`${counts.entries} link${counts.entries === 1 ? "" : "s"}`);
+  return `Switching Worker URLs clears this device's local data. This device has ${parts.join(", ")} not yet synced to the Worker you're leaving — they'll be lost unless you export a backup first. Continue?`;
 }
 
 export type SyncStatus = "unconfigured" | "connected" | "error";

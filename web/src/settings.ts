@@ -5,7 +5,7 @@ import {
   isWorkerSchemaCompatible,
   mergeState,
   pushAll,
-  countUnsyncedState,
+  buildSwitchWarning,
 } from "@shelve/core/lib/sync";
 import { setUiState, type UiState } from "@shelve/core/lib/uiState";
 import { loadState, saveState, resetState } from "@shelve/core/lib/storage";
@@ -14,32 +14,6 @@ import { downloadJson, readFileAsJson, isRemoteState } from "@shelve/core/lib/ba
 import { applyTheme } from "@shelve/core/lib/theme";
 import { showConfirm } from "@shelve/core/lib/modal";
 import { WEB_VERSION } from "./version";
-
-/** Builds the confirmation text for switching to a different Worker URL.
- * Checks the *old* Worker (the currently configured one, before the new
- * config overwrites it) for whether it already has everything currently
- * sitting in local state, so the warning says what's actually at risk
- * instead of a blanket "might lose something." Always returns a warning —
- * even when nothing would be lost, since the user still needs a chance to
- * back out of the reset itself — it only tailors the wording. Falls back
- * to a generic warning if the old Worker can't be reached to check. */
-async function buildSwitchWarning(): Promise<string> {
-  const oldRemote = await fetchRemoteState();
-  if (!oldRemote) {
-    return "Switching Worker URLs clears this device's local data. The Worker you're leaving couldn't be reached to confirm it already has everything, so back it up first if you're unsure — use Export Backup below. Continue?";
-  }
-  const local = await loadState();
-  const counts = countUnsyncedState(local, oldRemote);
-  const total = counts.workspaces + counts.folders + counts.entries;
-  if (total === 0) {
-    return "Switching Worker URLs clears this device's local data. The Worker you're leaving already has everything currently on this device, so nothing should be lost. Continue?";
-  }
-  const parts: string[] = [];
-  if (counts.workspaces) parts.push(`${counts.workspaces} workspace${counts.workspaces === 1 ? "" : "s"}`);
-  if (counts.folders) parts.push(`${counts.folders} folder${counts.folders === 1 ? "" : "s"}`);
-  if (counts.entries) parts.push(`${counts.entries} link${counts.entries === 1 ? "" : "s"}`);
-  return `Switching Worker URLs clears this device's local data. This device has ${parts.join(", ")} not yet synced to the Worker you're leaving — they'll be lost unless you export a backup first. Continue?`;
-}
 
 /** The web app's settings/connect screen — Worker URL/token, theme,
  * backup/Toby import-export, modeled on extension/src/options/main.ts
