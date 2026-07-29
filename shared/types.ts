@@ -36,6 +36,16 @@ export interface Entry {
 
 export type ResourceKind = "workspaces" | "folders" | "entries";
 
+/** The shape both core/lib/linkMetadata.ts's client-side fetch and
+ * worker/src/linkMetadata.ts's server-side proxy (GET /link-metadata,
+ * used by the web app — see ARCHITECTURE.md) return. Defined once here
+ * rather than independently in each, so the wire contract between them
+ * can't silently drift, same rationale as Workspace/Folder/Entry above. */
+export interface LinkMetadata {
+  title: string | null;
+  faviconUrl: string | null;
+}
+
 /** Bumped whenever a file is added to worker/migrations/ — the number
  * matches the latest migration's numeric prefix. The extension compares
  * this against the schemaVersion a connected Worker reports from

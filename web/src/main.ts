@@ -3,6 +3,7 @@ import { pullAndMerge, pushAll, onSyncStatusChange } from "@shelve/core/lib/sync
 import { getUiState, setUiState } from "@shelve/core/lib/uiState";
 import { applyTheme } from "@shelve/core/lib/theme";
 import { setStore } from "@shelve/core/lib/store";
+import { setLinkMetadataFetcher } from "@shelve/core/lib/linkMetadata";
 import type { AppContext } from "@shelve/core/ui/context";
 import { buildRail } from "@shelve/core/ui/rail";
 import { buildToolbar } from "@shelve/core/ui/toolbar";
@@ -10,9 +11,11 @@ import { buildFolders } from "@shelve/core/ui/folders";
 import { buildTrash } from "@shelve/core/ui/trash";
 import { webStore, onRemoteChange } from "./webStore";
 import { webTabActions } from "./webTabActions";
+import { webFetchLinkMetadata } from "./webLinkMetadata";
 import { buildSettings } from "./settings";
 
 setStore(webStore);
+setLinkMetadataFetcher(webFetchLinkMetadata);
 
 let state: State = await loadState();
 // The rest of startup (render() at the very bottom of this module) must
