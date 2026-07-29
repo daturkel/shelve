@@ -150,7 +150,7 @@ async function apiFetch(path: string, init: RequestInit = {}): Promise<Response 
   // write columns the Worker silently drops, or merge in remote records
   // missing a field the local client expects, quietly losing data.
   if (path !== "/health") {
-    const status = await checkCompatibility();
+    const status = await checkCompatibility(config.workerUrl);
     if (status === "incompatible") {
       console.warn(`shelve sync: skipping ${path} — connected Worker's schema is out of date`);
       setSyncStatus("error");
@@ -220,10 +220,20 @@ export function isWorkerSchemaCompatible(health: WorkerHealth): boolean {
 // deliberately fails open: only a *confirmed* outdated schema blocks
 // requests, consistent with sync's existing best-effort, never-blocking
 // failure handling.
+//
+// Keyed by workerUrl, not just "has this run yet": Settings can point
+// this device at a different Worker mid-session (see buildSwitchWarning
+// above) without a page reload in between on the extension's options
+// page. Without the key, a verdict cached for the old Worker would keep
+// gating every request to the new one, either wrongly blocking a
+// compatible new Worker or — worse — waving through writes to an
+// incompatible one because the old Worker had happened to check out.
 let compatibility: Promise<"compatible" | "incompatible" | "unknown"> | null = null;
+let compatibilityWorkerUrl: string | null = null;
 
-async function checkCompatibility(): Promise<"compatible" | "incompatible" | "unknown"> {
-  if (!compatibility) {
+async function checkCompatibility(workerUrl: string): Promise<"compatible" | "incompatible" | "unknown"> {
+  if (!compatibility || compatibilityWorkerUrl !== workerUrl) {
+    compatibilityWorkerUrl = workerUrl;
     compatibility = fetchWorkerHealth().then((health) =>
       health ? (isWorkerSchemaCompatible(health) ? "compatible" : "incompatible") : "unknown",
     );
