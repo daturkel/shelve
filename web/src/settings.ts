@@ -7,7 +7,7 @@ import {
   pushAll,
 } from "@shelve/core/lib/sync";
 import { setUiState, type UiState } from "@shelve/core/lib/uiState";
-import { loadState, saveState } from "@shelve/core/lib/storage";
+import { loadState, saveState, resetState } from "@shelve/core/lib/storage";
 import { importToby, exportToby, isTobyExport } from "@shelve/core/lib/tobyImport";
 import { downloadJson, readFileAsJson, isRemoteState } from "@shelve/core/lib/backupFile";
 import { applyTheme } from "@shelve/core/lib/theme";
@@ -204,8 +204,23 @@ export async function buildSettings(uiState: UiState, onClose: () => void): Prom
       status.className = "status error";
       return;
     }
+
+    // Switching to a different Worker URL points this device at an
+    // unrelated backend. Without a reset, the next sync pull merges this
+    // device's old local data into the new Worker instead of starting
+    // clean.
+    const isSwitchingWorker = !!config?.workerUrl && config.workerUrl !== workerUrl;
+    if (isSwitchingWorker) {
+      const ok = await showConfirm(
+        "Switching Worker URLs clears this device's local data (any of it not already synced elsewhere will be lost — use Export Backup first if you're unsure). Continue?",
+        "Switch",
+      );
+      if (!ok) return;
+    }
+
     try {
       await setConfig({ workerUrl, apiToken });
+      if (isSwitchingWorker) await resetState();
     } catch (e) {
       status.textContent = `Couldn't save: ${e instanceof Error ? e.message : String(e)}`;
       status.className = "status error";

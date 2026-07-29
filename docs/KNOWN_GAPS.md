@@ -6,7 +6,6 @@ Things that are missing or incomplete. Not blocking, just not built yet.
 - **No tags or per-entry screenshots.**
 - **No Chrome Web Store listing** — load-unpacked only.
 - **No automatic trash expiry.** Permanent delete is manual (per-item, bulk, or empty-trash); a scheduled auto-expiry would need a Cron Trigger on the Worker, which doesn't exist yet.
-- **Switching a device's Worker URL/token doesn't clear local state.** The next sync merges old local data into the new Worker instead of starting fresh.
 - **Thin test coverage on the DOM-orchestration layer** (`core/ui/*.ts`, extension options/popup/background). `core/lib/*` is well unit-tested; a small Playwright e2e suite covers two smoke flows (folder/link creation, entry multi-select + delete). Drag-reorder, tabs-panel multi-select, and trash restore have no automated coverage.
 - **No keyboard-shortcut help modal.** Not worth it yet — there's only `/` for search and Escape to clear it.
 - **No touch drag-and-drop on the web app.** Desktop drag-and-drop reordering works; touch devices can still create/rename/delete/move items via buttons and modals, just not reorder by dragging.
