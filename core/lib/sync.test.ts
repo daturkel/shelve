@@ -89,6 +89,16 @@ describe("mergeArray", () => {
     const merged = mergeArray(local, []);
     expect(merged).toEqual(local);
   });
+
+  it("a freshly-initialized bootstrap record (updated_at: 0) never resurrects an already-deleted remote record with the same id", () => {
+    // Simulates initState()'s default "Home" workspace on a fresh/wiped
+    // device, syncing against a Worker where that same well-known id was
+    // already intentionally soft-deleted at some point in the past.
+    const local = [ws({ id: "default", name: "Home", updated_at: 0, deleted_at: null })];
+    const remote = [ws({ id: "default", name: "Home", updated_at: 555_000, deleted_at: 555_000 })];
+    const merged = mergeArray(local, remote);
+    expect(merged[0].deleted_at).toBe(555_000);
+  });
 });
 
 describe("mergeState", () => {

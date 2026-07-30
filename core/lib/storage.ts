@@ -32,13 +32,21 @@ export async function resetState(): Promise<State> {
 }
 
 async function initState(): Promise<State> {
-  const now = Date.now();
   const home: Workspace = {
     id: DEFAULT_WORKSPACE_ID,
     name: "Home",
     position: 0,
-    created_at: now,
-    updated_at: now,
+    created_at: Date.now(),
+    // Deliberately not Date.now(): mergeArray()/the Worker's upsert-by-
+    // recency both let the newer `updated_at` win, so a real Date.now()
+    // here would always out-recency (and silently resurrect) an
+    // intentional soft-delete of this same well-known id that happened
+    // at any point in the past on another device. 0 guarantees this
+    // bootstrap placeholder only ever wins when the Worker has nothing
+    // at all yet for this id — any genuine remote record, deleted or
+    // not, always beats it. The first real mutation (rename, delete,
+    // etc.) immediately stamps a real Date.now() and this stops applying.
+    updated_at: 0,
     deleted_at: null,
   };
   const state: State = { workspaces: [home], folders: [], entries: [] };

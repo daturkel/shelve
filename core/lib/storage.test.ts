@@ -44,6 +44,18 @@ describe("loadState", () => {
     expect(state.entries).toEqual([]);
   });
 
+  it("stamps the default workspace's updated_at as 0, not the current time", async () => {
+    // See core/lib/sync.ts's mergeArray: a real Date.now() here would
+    // always out-recency (and silently resurrect, via merge or the
+    // Worker's own upsert-by-recency) an intentional soft-delete of this
+    // same well-known id that happened at any point in the past on
+    // another device. 0 guarantees this bootstrap placeholder only ever
+    // wins a merge when the remote has nothing at all yet for this id.
+    const state = await loadState();
+    expect(state.workspaces[0].updated_at).toBe(0);
+    expect(state.workspaces[0].created_at).toBeGreaterThan(0);
+  });
+
   it("returns the same state on a second call (persisted, not re-initialized)", async () => {
     const first = await loadState();
     const second = await loadState();
