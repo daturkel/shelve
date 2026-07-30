@@ -34,8 +34,7 @@ export function buildRail(ctx: AppContext): HTMLElement {
       const name = await showPrompt("Rename workspace", ws.name);
       if (!name || name === ws.name) return;
       renameWorkspace(ctx.state, ws.id, name);
-      await ctx.rerender();
-      void pushResource("workspaces", ws);
+      if (await ctx.rerender()) void pushResource("workspaces", ws);
     };
 
     const label = document.createElement("span");
@@ -61,10 +60,11 @@ export function buildRail(ctx: AppContext): HTMLElement {
           ctx.uiState.lastActiveWorkspaceId = ctx.activeWorkspaceId;
           await ctx.persistUiState();
         }
-        await ctx.rerender();
-        void pushDelete("workspaces", workspace.id);
-        for (const folder of folders) void pushDelete("folders", folder.id);
-        for (const entry of entries) void pushDelete("entries", entry.id);
+        if (await ctx.rerender()) {
+          void pushDelete("workspaces", workspace.id);
+          for (const folder of folders) void pushDelete("folders", folder.id);
+          for (const entry of entries) void pushDelete("entries", entry.id);
+        }
       };
       item.appendChild(del);
     }
@@ -82,8 +82,7 @@ export function buildRail(ctx: AppContext): HTMLElement {
     ctx.activeWorkspaceId = ws.id;
     ctx.uiState.lastActiveWorkspaceId = ws.id;
     await ctx.persistUiState();
-    await ctx.rerender();
-    void pushResource("workspaces", ws);
+    if (await ctx.rerender()) void pushResource("workspaces", ws);
   };
   rail.appendChild(addBtn);
 

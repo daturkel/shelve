@@ -115,6 +115,50 @@ export function showTextarea(title: string, defaultValue = ""): Promise<string |
   });
 }
 
+let dismissActiveToast: (() => void) | null = null;
+
+/** Transient, dismissible error banner. Storage writes throughout the
+ * folder/rail/trash UI are optimistic — state is mutated and re-rendered
+ * before the write to persistent storage is known to have succeeded — so
+ * a rejected write (e.g. storage quota exceeded, or a blocked
+ * transaction) previously left the user looking at a change that quietly
+ * reverted itself on the next reload with no indication anything had gone
+ * wrong. This surfaces that failure immediately instead. */
+export function showErrorToast(message: string): void {
+  dismissActiveToast?.();
+
+  const toast = document.createElement("div");
+  toast.className = "shelve-toast";
+  // role="alert" + aria-live: an assistive-tech user gets no other signal
+  // that anything happened — the failure here is exactly a silently
+  // reverted optimistic UI change, so this is the one place that matters.
+  toast.setAttribute("role", "alert");
+  toast.setAttribute("aria-live", "assertive");
+
+  const text = document.createElement("span");
+  text.textContent = message;
+  toast.appendChild(text);
+
+  const dismiss = document.createElement("button");
+  dismiss.className = "shelve-toast-dismiss";
+  dismiss.textContent = "✕";
+  dismiss.title = "Dismiss";
+  dismiss.onclick = () => cleanup();
+  toast.appendChild(dismiss);
+
+  document.body.appendChild(toast);
+
+  const timer = setTimeout(cleanup, 6000);
+
+  function cleanup(): void {
+    clearTimeout(timer);
+    toast.remove();
+    if (dismissActiveToast === cleanup) dismissActiveToast = null;
+  }
+
+  dismissActiveToast = cleanup;
+}
+
 /** In-window replacement for window.confirm(). */
 export function showConfirm(title: string, confirmLabel = "Delete"): Promise<boolean> {
   return new Promise((resolve) => {

@@ -41,8 +41,9 @@ async function createEntriesFromDraggedTabs(ctx: AppContext, folder: Folder, tab
       favicon_url: tab.favIconUrl ?? null,
     }),
   );
-  await ctx.rerender();
-  for (const entry of created) void pushResource("entries", entry);
+  if (await ctx.rerender()) {
+    for (const entry of created) void pushResource("entries", entry);
+  }
 
   if (ctx.uiState.closeTabOnSave) {
     ctx.tabActions.close(tabs.map((tab) => tab.id));
@@ -66,8 +67,9 @@ async function moveEntriesToPosition(
   entryIds.forEach((id, i) => {
     allChanged.push(...moveEntryToPosition(ctx.state, id, folder.id, targetIndex + i));
   });
-  await ctx.rerender();
-  for (const e of allChanged) void pushResource("entries", e);
+  if (await ctx.rerender()) {
+    for (const e of allChanged) void pushResource("entries", e);
+  }
   for (const id of entryIds) ctx.selectedEntryIds.delete(id);
 }
 
@@ -172,8 +174,9 @@ function buildEntrySelectionBar(ctx: AppContext): HTMLElement {
     if (!ok) return;
     for (const id of ids) deleteEntry(ctx.state, id);
     ctx.selectedEntryIds.clear();
-    await ctx.rerender();
-    for (const id of ids) void pushDelete("entries", id);
+    if (await ctx.rerender()) {
+      for (const id of ids) void pushDelete("entries", id);
+    }
   };
   actions.appendChild(deleteBtn);
 
@@ -233,8 +236,9 @@ function setUpFolderReordering(ctx: AppContext, container: HTMLElement, workspac
     orderedIds.splice(targetIndex, 0, draggedId);
 
     const changed = reorderFolders(ctx.state, ctx.activeWorkspaceId, orderedIds);
-    await ctx.rerender();
-    for (const f of changed) void pushResource("folders", f);
+    if (await ctx.rerender()) {
+      for (const f of changed) void pushResource("folders", f);
+    }
   };
 }
 
@@ -276,8 +280,7 @@ function buildFolderSection(ctx: AppContext, folder: Folder, query: string): HTM
     const newName = await showPrompt("Rename folder", folder.name);
     if (!newName || newName === folder.name) return;
     renameFolder(ctx.state, folder.id, newName);
-    await ctx.rerender();
-    void pushResource("folders", folder);
+    if (await ctx.rerender()) void pushResource("folders", folder);
   };
   name.ondblclick = async (ev) => {
     ev.stopPropagation();
@@ -311,9 +314,10 @@ function buildFolderSection(ctx: AppContext, folder: Folder, query: string): HTM
     const ok = await showConfirm(`Delete folder "${folder.name}" and its entries?`);
     if (!ok) return;
     const { entries: cascadedEntries } = deleteFolder(ctx.state, folder.id);
-    await ctx.rerender();
-    void pushDelete("folders", folder.id);
-    for (const entry of cascadedEntries) void pushDelete("entries", entry.id);
+    if (await ctx.rerender()) {
+      void pushDelete("folders", folder.id);
+      for (const entry of cascadedEntries) void pushDelete("entries", entry.id);
+    }
   };
   header.appendChild(del);
 
@@ -491,8 +495,7 @@ function buildAddLinkTile(ctx: AppContext, folder: Folder): HTMLElement {
     const title = meta.title ?? (await showPrompt("Title", url));
     if (!title) return;
     const entry = createEntry(ctx.state, folder.id, { url, title, favicon_url: meta.faviconUrl });
-    await ctx.rerender();
-    void pushResource("entries", entry);
+    if (await ctx.rerender()) void pushResource("entries", entry);
   };
   return el;
 }
@@ -555,8 +558,7 @@ function buildEntryEl(ctx: AppContext, entry: Entry): HTMLElement {
     const newTitle = await showPrompt("Rename", entry.title || entry.url || entry.note || "");
     if (!newTitle || newTitle === entry.title) return;
     updateEntryTitle(ctx.state, entry.id, newTitle);
-    await ctx.rerender();
-    void pushResource("entries", entry);
+    if (await ctx.rerender()) void pushResource("entries", entry);
   };
   el.appendChild(edit);
 
@@ -567,8 +569,7 @@ function buildEntryEl(ctx: AppContext, entry: Entry): HTMLElement {
     ev.stopPropagation();
     deleteEntry(ctx.state, entry.id);
     ctx.selectedEntryIds.delete(entry.id);
-    await ctx.rerender();
-    void pushDelete("entries", entry.id);
+    if (await ctx.rerender()) void pushDelete("entries", entry.id);
   };
   el.appendChild(del);
 

@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from "vitest";
-import { showPrompt, showTextarea, showConfirm } from "./modal";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { showPrompt, showTextarea, showConfirm, showErrorToast } from "./modal";
 
 // Each show*() call appends its own overlay and only removes it once
 // resolved. Scoping every query to the most recently opened overlay (rather
@@ -119,5 +119,52 @@ describe("showConfirm", () => {
     expect(danger.textContent).toBe("Archive");
     danger.click();
     await result;
+  });
+});
+
+describe("showErrorToast", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+    document.querySelectorAll(".shelve-toast").forEach((el) => el.remove());
+  });
+
+  it("renders the message as an assertive alert", () => {
+    showErrorToast("Couldn't save your change: quota exceeded");
+    const toast = document.querySelector(".shelve-toast")!;
+    expect(toast.textContent).toContain("Couldn't save your change: quota exceeded");
+    expect(toast.getAttribute("role")).toBe("alert");
+    expect(toast.getAttribute("aria-live")).toBe("assertive");
+  });
+
+  it("replaces a still-visible previous toast rather than stacking", () => {
+    showErrorToast("first");
+    showErrorToast("second");
+    const toasts = document.querySelectorAll(".shelve-toast");
+    expect(toasts.length).toBe(1);
+    expect(toasts[0].textContent).toContain("second");
+  });
+
+  it("auto-dismisses after a few seconds", () => {
+    vi.useFakeTimers();
+    showErrorToast("transient failure");
+    expect(document.querySelector(".shelve-toast")).not.toBeNull();
+    vi.advanceTimersByTime(6000);
+    expect(document.querySelector(".shelve-toast")).toBeNull();
+  });
+
+  it("dismisses immediately when its dismiss button is clicked", () => {
+    showErrorToast("transient failure");
+    (document.querySelector(".shelve-toast-dismiss") as HTMLButtonElement).click();
+    expect(document.querySelector(".shelve-toast")).toBeNull();
+  });
+
+  it("a leftover auto-dismiss timer from a replaced toast doesn't clear the new one", () => {
+    vi.useFakeTimers();
+    showErrorToast("first");
+    vi.advanceTimersByTime(3000);
+    showErrorToast("second");
+    // "first"'s 6s timer would fire here if it hadn't been cleared on replacement.
+    vi.advanceTimersByTime(3000);
+    expect(document.querySelector(".shelve-toast")?.textContent).toContain("second");
   });
 });

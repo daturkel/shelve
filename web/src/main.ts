@@ -4,6 +4,7 @@ import { getUiState, setUiState } from "@shelve/core/lib/uiState";
 import { applyTheme } from "@shelve/core/lib/theme";
 import { setStore } from "@shelve/core/lib/store";
 import { setLinkMetadataFetcher } from "@shelve/core/lib/linkMetadata";
+import { persistOrRevert } from "@shelve/core/lib/persist";
 import type { AppContext } from "@shelve/core/ui/context";
 import { buildRail } from "@shelve/core/ui/rail";
 import { buildToolbar } from "@shelve/core/ui/toolbar";
@@ -123,26 +124,31 @@ document.addEventListener("keydown", (ev) => {
   document.querySelector<HTMLInputElement>(".search-input")?.focus();
 });
 
-async function rerender() {
-  await saveState(ctx.state);
+async function rerender(): Promise<boolean> {
+  const result = await persistOrRevert(() => saveState(ctx.state), loadState);
+  if (result.reverted) ctx.state = result.reverted;
   await render();
+  return result.ok;
 }
 
 async function persistUiState() {
-  // core/ui/toolbar.ts's ☰ toggle (shared with the extension) flips and
-  // persists uiState.leftCollapsed unconditionally — the same field
-  // main.ts overloads as "is the mobile drawer open" on narrow
-  // viewports. Persisting a mobile drawer toggle as-is would clobber
-  // the desktop sidebar-visibility preference stored under that same
-  // key, surprising a user who later opens the same browser profile at
-  // desktop width. On mobile, persist everything else but keep
-  // whatever was last saved for leftCollapsed.
-  if (window.matchMedia("(max-width: 768px)").matches) {
-    const stored = await getUiState();
-    await setUiState({ ...ctx.uiState, leftCollapsed: stored.leftCollapsed });
-    return;
-  }
-  await setUiState(ctx.uiState);
+  const result = await persistOrRevert(async () => {
+    // core/ui/toolbar.ts's ☰ toggle (shared with the extension) flips and
+    // persists uiState.leftCollapsed unconditionally — the same field
+    // main.ts overloads as "is the mobile drawer open" on narrow
+    // viewports. Persisting a mobile drawer toggle as-is would clobber
+    // the desktop sidebar-visibility preference stored under that same
+    // key, surprising a user who later opens the same browser profile at
+    // desktop width. On mobile, persist everything else but keep
+    // whatever was last saved for leftCollapsed.
+    if (window.matchMedia("(max-width: 768px)").matches) {
+      const stored = await getUiState();
+      await setUiState({ ...ctx.uiState, leftCollapsed: stored.leftCollapsed });
+      return;
+    }
+    await setUiState(ctx.uiState);
+  }, getUiState);
+  if (result.reverted) ctx.uiState = result.reverted;
 }
 
 async function render() {

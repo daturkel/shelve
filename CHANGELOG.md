@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Switching a device to a different Worker URL now prompts for confirmation and resets local state to a fresh single-workspace state before saving the new config (`resetState()`, `core/lib/storage.ts`), in both the web app and extension options pages — previously local state was left untouched, so the next sync pull merged the old backend's data into the new one instead of starting fresh. The reset only happens once the new Worker is confirmed reachable, so a bad or unreachable URL/token can't wipe local data with no way to recover it. The confirm dialog itself (`buildSwitchWarning()`, factored out of both settings screens into `core/lib/sync.ts` since it was byte-identical in each) checks the _old_ Worker for whether local state actually has anything unsynced to it, via a new `countUnsyncedState()`, and tailors its wording to what's genuinely at risk instead of a blanket warning — falling back to the generic wording if the old Worker can't be reached to check.
+
+### Fixed
+
+- Switching to a different Worker mid-session without a page reload (the extension's options page) kept applying the old Worker's schema-compatibility verdict to the new one, since `checkCompatibility()`'s cache had no key — silently letting writes through to an incompatible Worker, or blocking a compatible one. Now keyed by Worker URL.
+- Storage-write failures in the folder-browser UI (create/rename/delete/move/reorder on folders, entries, and workspaces, plus trash restore/permanent-delete) are no longer silent. Every mutation there is optimistic — state is mutated and re-rendered before the write to persistent storage is known to have succeeded — so a rejected write (storage quota exceeded, a blocked IndexedDB/`chrome.storage.local` transaction) previously left the change looking like it worked, only to quietly revert on the next reload with no indication anything had gone wrong. `ctx.rerender()`/`ctx.persistUiState()` (`web/src/main.ts`, `extension/src/newtab/main.ts`) now catch that failure via a shared `persistOrRevert()` helper (`core/lib/persist.ts`): the in-memory state is rolled back to whatever's actually persisted and a dismissible error toast (`core/lib/modal.ts`'s `showErrorToast()`) reports it immediately, matching how the settings screens' Save/Disconnect already surfaced this class of failure. `ctx.rerender()` now also reports back whether the write succeeded, so callers that push the same mutation to the sync server afterward (`core/ui/folders.ts`, `rail.ts`, `trash.ts`) skip that push on a reverted write instead of pushing a change to the Worker that the local copy just undid.
+
 ## [0.5.0] - 2026-07-29
 
 ### Added

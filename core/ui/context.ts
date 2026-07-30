@@ -51,8 +51,11 @@ export interface AppContext {
   expandedTrashGroupIds: Set<string>;
   /** Re-render from current in-memory state, without persisting. */
   render: () => void;
-  /** Persist state, then re-render. */
-  rerender: () => Promise<void>;
+  /** Persist state, then re-render. Resolves to whether the persist
+   * succeeded — callers that push a mutation to the sync server
+   * afterward (folders.ts, rail.ts, trash.ts) must gate that push on
+   * this, or a locally-reverted failed write would still get pushed. */
+  rerender: () => Promise<boolean>;
   /** Persist uiState only (collapsed folders, showOnNewTab, etc). */
   persistUiState: () => Promise<void>;
   /** Platform-specific tab operations — see TabActions above. */

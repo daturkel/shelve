@@ -3,6 +3,7 @@ import { pullAndMerge, pushAll, onSyncStatusChange } from "@shelve/core/lib/sync
 import { getUiState, setUiState } from "@shelve/core/lib/uiState";
 import { applyTheme } from "@shelve/core/lib/theme";
 import { setStore } from "@shelve/core/lib/store";
+import { persistOrRevert } from "@shelve/core/lib/persist";
 import type { AppContext } from "@shelve/core/ui/context";
 import { buildRail } from "@shelve/core/ui/rail";
 import { buildToolbar } from "@shelve/core/ui/toolbar";
@@ -80,13 +81,16 @@ document.addEventListener("keydown", (ev) => {
   document.querySelector<HTMLInputElement>(".search-input")?.focus();
 });
 
-async function rerender() {
-  await saveState(ctx.state);
+async function rerender(): Promise<boolean> {
+  const result = await persistOrRevert(() => saveState(ctx.state), loadState);
+  if (result.reverted) ctx.state = result.reverted;
   render();
+  return result.ok;
 }
 
 async function persistUiState() {
-  await setUiState(ctx.uiState);
+  const result = await persistOrRevert(() => setUiState(ctx.uiState), getUiState);
+  if (result.reverted) ctx.uiState = result.reverted;
 }
 
 function render() {

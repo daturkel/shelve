@@ -142,8 +142,9 @@ export function buildTrash(ctx: AppContext): HTMLElement {
       if (!ok) return;
       for (const item of items) hardDeleteTopLevel(ctx, item);
       ctx.selectedTrashIds.clear();
-      await ctx.rerender();
-      for (const item of items) void pushPermanentDelete(workerKind(item.kind), item.id);
+      if (await ctx.rerender()) {
+        for (const item of items) void pushPermanentDelete(workerKind(item.kind), item.id);
+      }
     };
     heading.appendChild(emptyTrashBtn);
   }
@@ -352,8 +353,7 @@ function buildDeleteForeverButton(
     if (!ok) return;
     hardDeleteTopLevel(ctx, { kind, id });
     for (const k of [trashKey(kind, id), ...descendantKeys]) ctx.selectedTrashIds.delete(k);
-    await ctx.rerender();
-    void pushPermanentDelete(workerKind(kind), id);
+    if (await ctx.rerender()) void pushPermanentDelete(workerKind(kind), id);
   };
   return btn;
 }
@@ -391,8 +391,9 @@ function mutateRestore(ctx: AppContext, kind: ResourceKind, id: string): Array<(
 
 async function restoreTopLevel(ctx: AppContext, kind: ResourceKind, id: string): Promise<void> {
   const pushes = mutateRestore(ctx, kind, id);
-  await ctx.rerender();
-  for (const push of pushes) push();
+  if (await ctx.rerender()) {
+    for (const push of pushes) push();
+  }
 }
 
 /** Local-state-only mutation (no rerender/push) — bulk callers batch these
@@ -457,8 +458,9 @@ function buildTrashSelectionBar(ctx: AppContext, items: TrashItem[]): HTMLElemen
     const plan = computeSelectionPlan(ctx, items);
     const pushes = plan.flatMap(({ kind, id }) => mutateRestore(ctx, kind, id));
     ctx.selectedTrashIds.clear();
-    await ctx.rerender();
-    for (const push of pushes) push();
+    if (await ctx.rerender()) {
+      for (const push of pushes) push();
+    }
   };
   actions.appendChild(restoreBtn);
 
@@ -475,8 +477,9 @@ function buildTrashSelectionBar(ctx: AppContext, items: TrashItem[]): HTMLElemen
     const plan = computeSelectionPlan(ctx, items);
     for (const item of plan) hardDeleteTopLevel(ctx, item);
     ctx.selectedTrashIds.clear();
-    await ctx.rerender();
-    for (const { kind, id } of plan) void pushPermanentDelete(workerKind(kind), id);
+    if (await ctx.rerender()) {
+      for (const { kind, id } of plan) void pushPermanentDelete(workerKind(kind), id);
+    }
   };
   actions.appendChild(deleteBtn);
 
