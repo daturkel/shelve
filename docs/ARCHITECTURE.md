@@ -145,7 +145,7 @@ shelve/
     public/_headers              # Cloudflare Pages CSP
     e2e/                         # Playwright smoke suite
   scripts/
-    wizard/                      # npm run setup / npm run upgrade
+    wizard/                      # npm run wizard:deploy / npm run wizard:status
     bump-version.mjs
     release.mjs
   docs/

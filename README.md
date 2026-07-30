@@ -36,12 +36,12 @@ git clone https://github.com/daturkel/shelve.git
 cd shelve
 git checkout vX.Y.Z   # replace with the latest tag from https://github.com/daturkel/shelve/releases — main may be unstable
 npm install
-npm run setup
+npm run wizard:deploy
 ```
 
-`npm run setup` is an interactive wizard that deploys the Worker + D1 backend and, optionally, the web app — it prints every command before running it and asks for confirmation first, and it's safe to re-run if you stop partway through. Chrome extension setup is a manual browser step (`chrome://extensions` → Load unpacked) that the wizard prints instructions for at the end.
+`npm run wizard:deploy` is an interactive wizard that deploys the Worker + D1 backend and, optionally, the web app and the Chrome extension build — it's the same command for first-time setup and later upgrades, adapting to whatever's already there (nothing configured yet → creates it; already configured → applies any new migrations and redeploys). It only asks for confirmation before something that can actually change your Cloudflare account — read-only lookups (checking what already exists) run without asking — and groups each phase's changes into one plan you confirm once, rather than a question per command. Chrome extension setup is otherwise a manual browser step (`chrome://extensions` → Load unpacked) that the wizard prints instructions for at the end. `npm run wizard:status` is a companion read-only command — no prompts, no writes — that reports what's already deployed.
 
-Later, `npm run upgrade` does the same thing for an existing install — applies any new migrations and redeploys, same confirm-every-command posture.
+`npm run wizard:deploy` also supports non-interactive/scripted use (`-- --yes`, plus explicit `--database=`/`--worker-name=`/`--pages-project=` flags — it never guesses which existing Cloudflare resource to use) and a `-- --dry-run` mode that prints its plan without running anything. See [docs/SETUP.md](docs/SETUP.md#flags) for the full flag list.
 
 For the full walkthrough (each step explained, or doing it by hand instead of via the wizard), see [docs/SETUP.md](docs/SETUP.md). For lost tokens, revoking a device, or restoring from a backup, see [docs/OPERATIONS.md](docs/OPERATIONS.md).
 

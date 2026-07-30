@@ -4,7 +4,7 @@ Day-two questions for an already-deployed install: multiple devices, migrating f
 
 ## How do multiple devices work?
 
-Configure each device's client — extension, web app, or both — with the same Worker URL and API token (from `npm run setup`, or [SETUP.md](SETUP.md#1-deploy-the-backend-required)). They sync through your one Worker + D1 deployment, regardless of which client(s) each device uses.
+Configure each device's client — extension, web app, or both — with the same Worker URL and API token (from `npm run wizard:deploy`, or [SETUP.md](SETUP.md#1-deploy-the-backend-required)). They sync through your one Worker + D1 deployment, regardless of which client(s) each device uses.
 
 ## Can I use Shelve from my phone or a non-Chrome browser?
 

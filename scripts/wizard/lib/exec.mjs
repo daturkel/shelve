@@ -1,5 +1,8 @@
 // Every Wrangler-touching action goes through runCommand(): print the exact
-// command, confirm before running it, then execute. Nothing runs silently.
+// command, then execute — confirming first unless it's read-only, the
+// current plan phase was already confirmed as a whole, or --yes is set.
+// Nothing runs silently: the command is always printed, even when the
+// confirmation itself is skipped.
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
@@ -8,10 +11,18 @@ import { dim, step, warn } from "./style.mjs";
 
 export class WizardAborted extends Error {}
 
+/** Whether runCommand() should ask "Run this?" before executing — extracted
+ * as its own pure predicate so the whole readOnly/yes/phaseConfirmed gating
+ * matrix (the entire point of this refactor) can be tested directly, rather
+ * than only provable by tracing every call site by hand. */
+export function needsConfirmation({ readOnly, yes, phaseConfirmed }) {
+  return !readOnly && !yes && !phaseConfirmed;
+}
+
 /**
- * @param {import("node:readline/promises").Interface} rl
+ * @param {import("./context.mjs").WizardContext} ctx
  * @param {{description?: string, cmd: string, args?: string[], cwd?: string,
- *   capture?: boolean, quiet?: boolean, stdinInput?: string}} opts
+ *   capture?: boolean, quiet?: boolean, stdinInput?: string, readOnly?: boolean}} opts
  *   `capture: true` tees stdout to the terminal while also returning it as a
  *   string, for the handful of calls the wizard needs to parse (a deploy
  *   URL, a generated database_id). `quiet: true` (only meaningful alongside
@@ -21,17 +32,23 @@ export class WizardAborted extends Error {}
  *   its own human-readable summary of whatever it parses out instead.
  *   `stdinInput` pipes a value into the child's stdin instead of inheriting
  *   the real terminal's stdin — used only for `wrangler secret put`, so the
- *   user never has to paste the generated API token by hand.
+ *   user never has to paste the generated API token by hand. `readOnly: true`
+ *   means this command can't change anything (a `list`/`whoami`-style
+ *   lookup, or a purely local build) — it always skips the "Run this?" gate,
+ *   regardless of ctx.yes/ctx.phaseConfirmed.
  */
 export async function runCommand(
-  rl,
-  { description, cmd, args = [], cwd, capture = false, quiet = false, stdinInput = null },
+  ctx,
+  { description, cmd, args = [], cwd, capture = false, quiet = false, stdinInput = null, readOnly = false },
 ) {
   if (description) step(description);
   console.log(dim(`$ ${[cmd, ...args].join(" ")}${cwd ? `  (in ${cwd})` : ""}`));
-  const proceed = await confirm(rl, "Run this?", true);
-  if (!proceed) {
-    throw new WizardAborted("Aborted — re-run any time, already-completed steps will be detected and skipped.");
+
+  if (needsConfirmation({ readOnly, yes: ctx.yes, phaseConfirmed: ctx.phaseConfirmed })) {
+    const proceed = await confirm(ctx, "Run this?", true);
+    if (!proceed) {
+      throw new WizardAborted("Aborted — re-run any time, already-completed steps will be detected and skipped.");
+    }
   }
 
   return new Promise((resolve, reject) => {
@@ -84,20 +101,25 @@ export function wranglerBin(root) {
  * just the current one, so creation can fail purely because someone else
  * already has that name — not a bug in the wizard, not something a retry
  * of the same name would ever fix. Rather than crash the whole wizard on
- * that (previously: a generic "exited with code 1" with no recovery short
- * of starting over), this loops: on any creation failure, ask for a
+ * that, this loops interactively: on any creation failure, ask for a
  * different name and try again. Returns the project name that actually
- * succeeded, which may differ from the one passed in. */
-export async function ensurePagesProjectExists(rl, wrangler, initialProjectName) {
+ * succeeded, which may differ from the one passed in.
+ *
+ * Under --yes, there's no one to ask for a different name — a taken name
+ * fails immediately with a clear error naming --pages-project, rather than
+ * looping (impossible non-interactively) or auto-appending a random suffix
+ * (would silently deploy under a different name than what was requested). */
+export async function ensurePagesProjectExists(ctx, wrangler, initialProjectName) {
   let projectName = initialProjectName;
 
   while (true) {
-    const { stdout: listOut } = await runCommand(rl, {
+    const { stdout: listOut } = await runCommand(ctx, {
       description: `Checking whether the Cloudflare Pages project "${projectName}" already exists.`,
       cmd: wrangler,
       args: ["pages", "project", "list", "--json"],
       capture: true,
       quiet: true,
+      readOnly: true,
     });
 
     let existingProjects = [];
@@ -118,7 +140,7 @@ export async function ensurePagesProjectExists(rl, wrangler, initialProjectName)
     console.log(dim(`Not found — "${projectName}" isn't one of your existing Pages projects yet.`));
 
     try {
-      await runCommand(rl, {
+      await runCommand(ctx, {
         description: `Creating Cloudflare Pages project "${projectName}".`,
         cmd: wrangler,
         args: ["pages", "project", "create", projectName, "--production-branch", "main"],
@@ -126,11 +148,18 @@ export async function ensurePagesProjectExists(rl, wrangler, initialProjectName)
       return projectName;
     } catch (e) {
       if (e instanceof WizardAborted) throw e; // declining to run it should abort, not retry
+      if (ctx.yes) {
+        throw new Error(
+          `Couldn't create Cloudflare Pages project "${projectName}" — the name may already be taken by another ` +
+            `Cloudflare account (Pages project names are globally unique). Re-run with a different --pages-project=<name>.`,
+          { cause: e },
+        );
+      }
       warn(
         `Couldn't create project "${projectName}" — the name may already be taken by another Cloudflare account (Pages project names are globally unique, not just within your account).`,
       );
       let retryName = "";
-      while (!retryName) retryName = await ask(rl, "Try a different Cloudflare Pages project name");
+      while (!retryName) retryName = await ask(ctx, "Try a different Cloudflare Pages project name");
       projectName = retryName;
     }
   }
@@ -148,17 +177,18 @@ export async function ensurePagesProjectExists(rl, wrangler, initialProjectName)
  * URL) actually landed as Production, by re-listing deployments and checking
  * its Environment. Warns with the fix (Pages dashboard -> Settings -> Builds
  * & deployments -> Production branch) rather than letting it pass silently. */
-export async function warnIfNotProduction(rl, wrangler, cwd, projectName, deployUrl) {
+export async function warnIfNotProduction(ctx, wrangler, cwd, projectName, deployUrl) {
   if (!deployUrl) return;
   let stdout;
   try {
-    ({ stdout } = await runCommand(rl, {
+    ({ stdout } = await runCommand(ctx, {
       description: "Checking whether that deploy landed as Production.",
       cmd: wrangler,
       args: ["pages", "deployment", "list", "--project-name", projectName, "--json"],
       cwd,
       capture: true,
       quiet: true,
+      readOnly: true,
     }));
   } catch {
     return; // not worth failing the whole wizard over a post-deploy sanity check
