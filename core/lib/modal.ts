@@ -1,3 +1,5 @@
+import type { LinkMetadata } from "./linkMetadata";
+
 /** Exported so custom modal-shaped UI (e.g. the tabs-panel folder picker)
  * can build on the same overlay/box shell without duplicating it. */
 export function buildOverlay(): { overlay: HTMLElement; box: HTMLElement } {
@@ -59,6 +61,85 @@ export function showPrompt(title: string, defaultValue = ""): Promise<string | n
 
     input.focus();
     input.select();
+  });
+}
+
+/** Title prompt for the "add link" flow, shown when metadata fetching is
+ * taking long enough that the user shouldn't just be staring at nothing
+ * (see core/ui/folders.ts's buildAddLinkTile — it races the metadata fetch
+ * against a short timeout and only falls back to this when that timeout
+ * wins). Opens immediately with the URL as a placeholder title and a
+ * spinner, and lets the user type/submit right away rather than blocking
+ * on `metadata`. If `metadata` resolves with a title before the user has
+ * edited the input or submitted, it's filled in automatically. */
+export function showLinkTitlePrompt(url: string, metadata: Promise<LinkMetadata>): Promise<string | null> {
+  return new Promise((resolve) => {
+    const { overlay, box } = buildOverlay();
+
+    const heading = document.createElement("div");
+    heading.className = "modal-title";
+    heading.textContent = "Title";
+    box.appendChild(heading);
+
+    const inputRow = document.createElement("div");
+    inputRow.className = "modal-input-row";
+    box.appendChild(inputRow);
+
+    const input = document.createElement("input");
+    input.className = "modal-input";
+    input.type = "text";
+    input.value = url;
+    inputRow.appendChild(input);
+
+    const spinner = document.createElement("span");
+    spinner.className = "modal-spinner";
+    spinner.setAttribute("role", "status");
+    spinner.setAttribute("aria-label", "Fetching title…");
+    inputRow.appendChild(spinner);
+
+    const actions = document.createElement("div");
+    actions.className = "modal-actions";
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "modal-btn";
+    cancelBtn.textContent = "Cancel";
+    const okBtn = document.createElement("button");
+    okBtn.className = "modal-btn modal-btn-primary";
+    okBtn.textContent = "OK";
+    actions.append(cancelBtn, okBtn);
+    box.appendChild(actions);
+
+    let settled = false;
+    let userEdited = false;
+    input.oninput = () => {
+      userEdited = true;
+    };
+
+    const cleanup = (result: string | null) => {
+      settled = true;
+      overlay.remove();
+      resolve(result);
+    };
+
+    okBtn.onclick = () => cleanup(input.value.trim() || null);
+    cancelBtn.onclick = () => cleanup(null);
+    overlay.onclick = (ev) => {
+      if (ev.target === overlay) cleanup(null);
+    };
+    input.onkeydown = (ev) => {
+      if (ev.key === "Enter") cleanup(input.value.trim() || null);
+      if (ev.key === "Escape") cleanup(null);
+    };
+
+    input.focus();
+    input.select();
+
+    void metadata.then((meta) => {
+      spinner.remove();
+      if (!settled && !userEdited && meta.title) {
+        input.value = meta.title;
+        input.select();
+      }
+    });
   });
 }
 

@@ -9,7 +9,7 @@ import {
   updateEntryTitle,
 } from "../lib/storage";
 import { pushResource, pushDelete } from "../lib/sync";
-import { showPrompt, showConfirm } from "../lib/modal";
+import { showPrompt, showConfirm, showLinkTitlePrompt } from "../lib/modal";
 import { fetchLinkMetadata } from "../lib/linkMetadata";
 import { buildFaviconEl } from "../lib/favicon";
 import { createFolderInteractive } from "../lib/actions";
@@ -475,6 +475,21 @@ function setUpEntryReordering(ctx: AppContext, grid: HTMLElement, folder: Folder
   };
 }
 
+// How long the metadata fetch gets to resolve before we stop waiting on
+// it silently. Below this, the common case (a fast fetch) stays a single
+// Enter with no visible modal-swap flicker. At or above it, the user would
+// otherwise be staring at nothing with no indication anything is
+// happening — see buildAddLinkTile below.
+const QUICK_METADATA_MS = 300;
+
+/** Resolves with `promise`'s value if it settles within `ms`, or with
+ * `undefined` if the timeout wins first — `promise` itself is left
+ * running either way, since its result (title/favicon) is still useful
+ * once it does resolve. */
+function raceWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T | undefined> {
+  return Promise.race([promise, new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), ms))]);
+}
+
 /** Small "+" tile for manually adding a link, for URLs you have but
  * aren't currently open as a tab (drag-from-open-tabs is the other way
  * to add an entry, but only covers what's already open). */
@@ -487,14 +502,32 @@ function buildAddLinkTile(ctx: AppContext, folder: Folder): HTMLElement {
     const rawUrl = await showPrompt("Add link (URL)");
     if (!rawUrl) return;
     const url = normalizeUrl(rawUrl);
-    const meta = await fetchLinkMetadata(url);
-    // One Enter should be enough for the common case: if the fetch found
-    // a real page title, use it directly rather than asking again with
-    // it as the default. Only fall back to a second prompt when the
-    // fetch didn't get a title (blocked, timed out, no <title> tag).
-    const title = meta.title ?? (await showPrompt("Title", url));
+    const metaPromise = fetchLinkMetadata(url);
+
+    let title: string | null;
+    let faviconUrl: string | null;
+    const meta = await raceWithTimeout(metaPromise, QUICK_METADATA_MS);
+    if (meta) {
+      // One Enter should be enough for the common case: if the fetch found
+      // a real page title, use it directly rather than asking again with
+      // it as the default. Only fall back to a second prompt when the
+      // fetch didn't get a title (blocked, timed out, no <title> tag).
+      faviconUrl = meta.faviconUrl;
+      title = meta.title ?? (await showPrompt("Title", url));
+    } else {
+      // The fetch is taking a while — don't leave the user staring at
+      // nothing. Show the title modal right away (URL as a placeholder,
+      // spinner while we wait) and let them type/submit without blocking
+      // on the fetch; it fills in the title automatically if it resolves
+      // in time.
+      faviconUrl = null;
+      void metaPromise.then((m) => {
+        faviconUrl = m.faviconUrl;
+      });
+      title = await showLinkTitlePrompt(url, metaPromise);
+    }
     if (!title) return;
-    const entry = createEntry(ctx.state, folder.id, { url, title, favicon_url: meta.faviconUrl });
+    const entry = createEntry(ctx.state, folder.id, { url, title, favicon_url: faviconUrl });
     if (await ctx.rerender()) void pushResource("entries", entry);
   };
   return el;

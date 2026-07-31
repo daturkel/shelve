@@ -31,9 +31,28 @@ describe("webFetchLinkMetadata", () => {
 
     expect(fetchSpy).toHaveBeenCalledWith(
       "https://worker.example/link-metadata?url=https%3A%2F%2Fexample.com%2Fpage%3Fa%3Db",
-      { headers: { Authorization: "Bearer secret-token" } },
+      { headers: { Authorization: "Bearer secret-token" }, signal: expect.any(AbortSignal) },
     );
     expect(meta).toEqual({ title: "Example", faviconUrl: "https://example.com/favicon.ico" });
+  });
+
+  it("aborts and returns nulls if the fetch doesn't settle within the timeout", async () => {
+    await setConfig({ workerUrl: "https://worker.example", apiToken: "secret-token" });
+    vi.useFakeTimers();
+    const fetchSpy = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+        }),
+    );
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const metaPromise = webFetchLinkMetadata("https://example.com/page", 50);
+    await vi.advanceTimersByTimeAsync(50);
+    const meta = await metaPromise;
+
+    expect(meta).toEqual({ title: null, faviconUrl: null });
+    vi.useRealTimers();
   });
 
   it("returns nulls on a non-OK response", async () => {

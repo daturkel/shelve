@@ -882,6 +882,31 @@ body {
   outline: 1px solid var(--accent);
 }
 
+.modal-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.modal-input-row .modal-input {
+  margin-bottom: 0;
+}
+
+.modal-spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: modal-spin 0.7s linear infinite;
+}
+@keyframes modal-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .modal-textarea {
   width: 100%;
   background: var(--bg);
