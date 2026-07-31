@@ -143,5 +143,3 @@ This also needs a Worker with CORS support (added alongside the web app itself) 
 | `--rotate-token` / `--no-rotate-token` | Explicit answer to "reconnecting to an existing database — rotate the API_TOKEN secret?" **Default is no** — rotating invalidates every already-configured client's token. Only relevant when reconnecting to an existing database; a brand-new database always gets a token generated (not a "rotation").                       |
 
 `npm run wizard:status` takes no flags — it's always read-only.
-
-**CI/scripted use:** set `CLOUDFLARE_API_TOKEN` (and `CLOUDFLARE_ACCOUNT_ID` if your account needs disambiguating) in the environment so `wrangler` is already authenticated — the wizard's login check then succeeds without ever needing to run `wrangler login` interactively, which needs a real browser and can't run non-interactively at all.
