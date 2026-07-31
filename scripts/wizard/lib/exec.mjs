@@ -167,10 +167,12 @@ export async function ensurePagesProjectExists(ctx, wrangler, initialProjectName
 
 /** `--production-branch main` (above) only takes effect when *creating* a
  * project — it's a no-op against a project that already existed before this
- * wizard touched it (e.g. one set up manually, or created while some other
- * branch was checked out). A deploy from `main` then silently lands as a
- * Preview deployment instead of Production, and the stable
- * `<project>.pages.dev` alias never updates — with no error, just a Pages
+ * wizard touched it (e.g. one set up manually). deploy.mjs's own deploy
+ * command always passes `--branch main` explicitly (not left to wrangler's
+ * auto-detected local git branch), so the only way this deploy can land as
+ * Preview instead of Production is that mismatch: the project's actual
+ * Production-branch setting isn't "main". Silently, the stable
+ * `<project>.pages.dev` alias then never updates — no error, just a Pages
  * dashboard that quietly doesn't match what was just deployed.
  *
  * Confirms the deployment we just made (identified by its unique per-deploy
@@ -206,9 +208,9 @@ export async function warnIfNotProduction(ctx, wrangler, cwd, projectName, deplo
   if (!deployment || deployment["Environment"] === "Production") return;
 
   warn(
-    `That deploy landed as Preview (branch "${deployment["Branch"]}"), not Production — ` +
-      `"${projectName}.pages.dev" still points at whatever was last deployed to this project's ` +
-      `actual production branch, not this deploy. Fix it in the Cloudflare dashboard: Pages -> ` +
-      `${projectName} -> Settings -> Builds & deployments -> Production branch -> set to "main" -> redeploy.`,
+    `That deploy landed as Preview, not Production, even though it was deployed as branch "main" — ` +
+      `this project's Production branch setting isn't "main", so "${projectName}.pages.dev" still points at ` +
+      `whatever was last deployed to its actual production branch, not this deploy. Fix it in the Cloudflare ` +
+      `dashboard: Pages -> ${projectName} -> Settings -> Builds & deployments -> Production branch -> set to "main" -> redeploy.`,
   );
 }

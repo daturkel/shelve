@@ -207,9 +207,9 @@ async function resolveRotateToken(ctx) {
 }
 
 async function setUpOrUpgradeWorker(ctx) {
-  ui.heading("Worker");
   const wrangler = wranglerBin(root);
   const existing = readWranglerToml(root);
+  ui.heading(existing?.configured ? "Worker (upgrading existing deployment)" : "Worker (first-time setup)");
 
   if (existing?.configured) {
     // worker/wrangler.toml already fully determines the database/Worker name
@@ -348,9 +348,11 @@ async function setUpOrUpgradeWeb(ctx) {
   const wantWeb = await resolveWantWeb(ctx);
   if (!wantWeb) return;
 
-  ui.heading("Web app");
   const wrangler = wranglerBin(root);
   const wizardConfig = readWizardConfig(root);
+  // A best-effort signal, not a guarantee (--pages-project could still name
+  // a brand-new project) — same caveat as the Worker heading above.
+  ui.heading(wizardConfig.pagesProjectName ? "Web app (upgrading existing deployment)" : "Web app (first-time setup)");
   const requestedName = await resolvePagesProjectName(ctx, wizardConfig);
 
   let projectName = requestedName;
@@ -371,7 +373,12 @@ async function setUpOrUpgradeWeb(ctx) {
     const { stdout } = await runCommand(ctx, {
       description: "Deploying to Cloudflare Pages.",
       cmd: wrangler,
-      args: ["pages", "deploy", "dist", "--project-name", projectName],
+      // --branch main explicitly, rather than letting wrangler auto-detect
+      // whatever git branch happens to be checked out locally — this
+      // deploy is meant to update the stable production URL regardless of
+      // what branch the wizard itself was run from (e.g. testing a change
+      // to the wizard from a feature branch shouldn't land as Preview).
+      args: ["pages", "deploy", "dist", "--project-name", projectName, "--branch", "main"],
       cwd: webDir,
       capture: true,
     });
@@ -408,17 +415,21 @@ async function setUpExtension(ctx) {
   let built = false;
 
   if (wantExtension) {
-    const plan = createPlan().add("Build the extension", () =>
-      runCommand(ctx, {
-        description: "Building the extension.",
-        cmd: "npm",
-        args: ["run", "build", "--workspace=extension"],
-        cwd: root,
-        readOnly: true, // local filesystem write only, no Cloudflare side effect
-      }),
-    );
-    await confirmAndRun(ctx, plan);
-    if (ctx.dryRun) return;
+    // No plan/confirm ceremony here — it's a single readOnly (local-only)
+    // action, and "Build the extension too?" above was already the real
+    // decision. A "Proceed with these 1 step(s)?" right after that would be
+    // asking the same question twice.
+    if (ctx.dryRun) {
+      console.log("Would build the extension (dry run — nothing executed).");
+      return;
+    }
+    await runCommand(ctx, {
+      description: "Building the extension.",
+      cmd: "npm",
+      args: ["run", "build", "--workspace=extension"],
+      cwd: root,
+      readOnly: true, // local filesystem write only, no Cloudflare side effect
+    });
     built = true;
   }
 
