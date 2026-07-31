@@ -4,7 +4,7 @@ Day-two questions for an already-deployed install: multiple devices, migrating f
 
 ## How do multiple devices work?
 
-Configure each device's client — extension, web app, or both — with the same Worker URL and API token (from `npm run setup`, or [SETUP.md](SETUP.md#1-deploy-the-backend-required)). They sync through your one Worker + D1 deployment, regardless of which client(s) each device uses.
+Configure each device's client — extension, web app, or both — with the same Worker URL and API token (from `npm run wizard:deploy`, or [SETUP.md](SETUP.md#1-deploy-the-backend-required)). They sync through your one Worker + D1 deployment, regardless of which client(s) each device uses.
 
 ## Can I use Shelve from my phone or a non-Chrome browser?
 
@@ -39,6 +39,10 @@ npx wrangler secret put API_TOKEN
 ```
 
 Update the new token on every device you want to keep syncing. Any device you skip starts getting 401s. There's no way to revoke a single device while leaving others on the old token — a real limitation of the shared-secret design, but a fine tradeoff for personal devices rather than a team.
+
+## I set up on a new machine and the wizard doesn't recognize my existing deployment — why?
+
+`worker/wrangler.toml` is gitignored, so it doesn't come along with a fresh clone — from the wizard's perspective, a new machine looks unconfigured even though your Worker/D1/Pages are still live. `npm run wizard:status` shows your existing D1 databases and Pages projects (both listable account-wide), but `wrangler` has no equivalent command to list Workers, so you'll need to supply your existing Worker's name yourself — from memory, the Cloudflare dashboard's Workers & Pages section, or via `npm run wizard:deploy -- --worker-name=<name>`. Before deploying, the wizard checks whether that name already has deployments — if so, it asks you to confirm (or warns, under `--yes`) before redeploying over it.
 
 ## Can other people see or use my deployment?
 

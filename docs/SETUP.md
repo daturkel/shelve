@@ -25,10 +25,10 @@ One Cloudflare Worker + one D1 database — the sync backend every client talks 
 **Wizard:**
 
 ```bash
-npm run setup
+npm run wizard:deploy
 ```
 
-Deploys the Worker + D1 backend and, optionally, the web app. Prints every command before running it and asks for confirmation first. Safe to re-run if you stop partway through — it detects what's already done. Skip to step 3 for the Chrome extension, which is still a manual browser step either way.
+Deploys the Worker + D1 backend and, optionally, the web app and the Chrome extension build. The same command handles both first-time setup and later upgrades — it adapts to whatever's already there rather than needing you to pick the right script. Read-only lookups (checking what already exists) never ask for confirmation; each phase's actual changes are grouped into one plan you confirm once. Safe to re-run if you stop partway through — it detects what's already done. See [Flags](#flags) below for non-interactive/scripted use. The Chrome extension's own installation is still a manual browser step either way (see Option A below) — the wizard can build it for you, but can't load it into Chrome.
 
 **By hand:**
 
@@ -61,14 +61,14 @@ Both talk to the same Worker from step 1 and share the same data; neither depend
 
 ### Option A: Chrome extension
 
-No Chrome Web Store listing yet — load it unpacked. Either build it yourself:
+No Chrome Web Store listing yet — load it unpacked. If you used the wizard and didn't say `--no-extension`, `extension/dist` is already built. Otherwise, build it yourself:
 
 ```bash
 cd extension   # from the repo root
 npm run build
 ```
 
-...or grab the latest `shelve-extension-vX.Y.Z.zip` from [Releases](https://github.com/daturkel/shelve/releases) and unzip it.
+...or grab the latest `shelve-extension-vX.Y.Z.zip` from [Releases](https://github.com/daturkel/shelve/releases) and unzip it. Either way, loading it into Chrome is a manual step the wizard can't automate — there's no CLI-drivable install path.
 
 Then in Chrome: `chrome://extensions` → enable **Developer mode** (top right) → **Load unpacked** → select `extension/dist` (or the folder you unzipped).
 
@@ -96,13 +96,7 @@ The web app's data is local-first (IndexedDB) and syncs through your Worker like
 
 The Worker and each client are versioned together but deployed independently, updated by hand on your own schedule.
 
-**Wizard:**
-
-```bash
-npm run upgrade
-```
-
-Applies any new migrations, redeploys the Worker, and redeploys the web app if you set it up via the wizard — confirming each command first, and printing instructions for updating the extension (a manual step) at the end.
+**Wizard:** just run `npm run wizard:deploy` again — it's the same command as first-time setup. Finding `worker/wrangler.toml` already configured, it applies any new migrations and redeploys the Worker, offers to redeploy the web app if you set it up via the wizard, and offers to rebuild the extension — no separate upgrade command to remember.
 
 **By hand,** update the Worker first, then whichever client(s) you have set up:
 
@@ -132,3 +126,20 @@ npx wrangler pages deploy dist --project-name=shelve-web
 ```
 
 This also needs a Worker with CORS support (added alongside the web app itself) — a normal `npx wrangler deploy` upgrade covers it as long as you've redeployed since then. An older Worker rejects every web app request with an opaque network error instead of a readable one.
+
+## Flags
+
+`npm run wizard:deploy` accepts flags after `--`, e.g. `npm run wizard:deploy -- --yes --database=shelve-db --worker-name=shelve-worker`:
+
+| Flag                                   | Meaning                                                                                                                                                                                                                                                                                                                          |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--yes` / `-y`                         | Non-interactive. Every confirmation auto-accepts its own safe default (e.g. "rotate the token?" defaults to no). A choice with no safe default — which existing D1 database or Worker to use, when none is already configured locally — is never guessed; it fails immediately with a message naming the flag to supply instead. |
+| `--dry-run`                            | Prints the plan for each phase without running anything. Combine with `--yes` to preview a fully non-interactive run.                                                                                                                                                                                                            |
+| `--database=<name>`                    | Explicit D1 database name — reuses it if it already exists in your account, creates it if not. Required by `--yes` whenever `worker/wrangler.toml` isn't already configured.                                                                                                                                                     |
+| `--worker-name=<name>`                 | Explicit Worker name. Required by `--yes` whenever `worker/wrangler.toml` isn't already configured. If a Worker already exists under this name, deploying redeploys over it — the wizard warns either way, and asks for confirmation unless `--yes` is set.                                                                      |
+| `--pages-project=<name>`               | Explicit Cloudflare Pages project name. Required by `--yes` when deploying the web app and no project is already recorded in `.shelve/wizard.json`.                                                                                                                                                                              |
+| `--web` / `--no-web`                   | Explicitly include or exclude the web app, instead of being asked. Under `--yes` with neither given, the web app is skipped (with a warning) rather than guessed at, since it needs a project name to resolve.                                                                                                                   |
+| `--extension` / `--no-extension`       | Explicitly include or exclude building the extension, instead of being asked. Under `--yes` with neither given, it's built by default — unlike the web app, building it needs no account resource to resolve, so there's nothing to guess.                                                                                       |
+| `--rotate-token` / `--no-rotate-token` | Explicit answer to "reconnecting to an existing database — rotate the API_TOKEN secret?" **Default is no** — rotating invalidates every already-configured client's token. Only relevant when reconnecting to an existing database; a brand-new database always gets a token generated (not a "rotation").                       |
+
+`npm run wizard:status` takes no flags — it's always read-only.

@@ -15,8 +15,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "setup": "node scripts/wizard/setup.mjs",
-    "upgrade": "node scripts/wizard/upgrade.mjs",
+    "wizard:status": "node scripts/wizard/status.mjs",
+    "wizard:deploy": "node scripts/wizard/deploy.mjs",
     "test:wizard": "node --test scripts/wizard/lib/*.test.mjs",
     "prepare": "husky"
   },
