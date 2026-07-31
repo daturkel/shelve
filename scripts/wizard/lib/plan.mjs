@@ -26,11 +26,15 @@ export function createPlan() {
  * `$ ...` line), only the individual "Run this?" gate is skipped. Under
  * --dry-run, prints the plan and returns without running anything; callers
  * whose later code depends on a step's output (e.g. a deploy URL parsed from
- * stdout) must check ctx.dryRun themselves before using it. */
-export async function confirmAndRun(ctx, plan, { phaseLabel = "Plan" } = {}) {
+ * stdout) must check ctx.dryRun themselves before using it.
+ *
+ * Prints the numbered steps directly, no heading of its own — the caller is
+ * expected to have already printed one section heading for the whole phase
+ * (discovery + this plan together), so this doesn't duplicate it. */
+export async function confirmAndRun(ctx, plan) {
   if (plan.isEmpty) return;
 
-  ui.heading(phaseLabel);
+  console.log("This will:");
   plan.steps.forEach((s, i) => console.log(`  ${i + 1}. ${s.label}`));
 
   if (ctx.dryRun) {

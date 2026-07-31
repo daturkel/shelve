@@ -224,7 +224,7 @@ async function setUpOrUpgradeWorker(ctx) {
     const plan = createPlan()
       .add("Apply any new D1 migrations", () => runCommand(ctx, migrationsArgs(wrangler, existing.databaseName)))
       .add("Deploy the Worker", () => deployWorkerStep(ctx, wrangler));
-    await confirmAndRun(ctx, plan, { phaseLabel: "Worker: migrate + redeploy" });
+    await confirmAndRun(ctx, plan);
     if (ctx.dryRun) return;
     await verifyWorkerHealthOptional(ctx);
     return;
@@ -312,7 +312,7 @@ async function setUpOrUpgradeWorker(ctx) {
 
   collected.databaseName = databaseName;
 
-  await confirmAndRun(ctx, plan, { phaseLabel: "Worker: first-time setup / reconnect" });
+  await confirmAndRun(ctx, plan);
   if (ctx.dryRun) return;
   if (apiToken) await checkWorkerHealth(collected.workerUrl, apiToken);
   else await verifyWorkerHealthOptional(ctx);
@@ -382,7 +382,7 @@ async function setUpOrUpgradeWeb(ctx) {
     collected.pagesProjectName = projectName;
   });
 
-  await confirmAndRun(ctx, plan, { phaseLabel: "Web app" });
+  await confirmAndRun(ctx, plan);
   if (ctx.dryRun) return;
 
   if (collected.pagesUrl) {
@@ -404,10 +404,10 @@ async function resolveWantExtension(ctx) {
 
 async function setUpExtension(ctx) {
   const wantExtension = await resolveWantExtension(ctx);
+  ui.heading("Chrome extension");
   let built = false;
 
   if (wantExtension) {
-    ui.heading("Chrome extension");
     const plan = createPlan().add("Build the extension", () =>
       runCommand(ctx, {
         description: "Building the extension.",
@@ -417,11 +417,9 @@ async function setUpExtension(ctx) {
         readOnly: true, // local filesystem write only, no Cloudflare side effect
       }),
     );
-    await confirmAndRun(ctx, plan, { phaseLabel: "Extension" });
+    await confirmAndRun(ctx, plan);
     if (ctx.dryRun) return;
     built = true;
-  } else {
-    ui.heading("Chrome extension");
   }
 
   console.log("This part is a manual browser flow — nothing else to automate:");
@@ -444,12 +442,8 @@ async function main() {
   const ctx = createContext({ rl, flags });
 
   ui.heading("Shelve deploy wizard");
-  if (ctx.yes) console.log("--yes: non-interactive. Every write step still prints before it runs.\n");
+  if (ctx.yes) console.log("--yes: non-interactive.\n");
   else if (ctx.dryRun) console.log("--dry-run: printing the plan, running nothing.\n");
-  else
-    console.log(
-      "Read-only checks run without asking; each phase's writes are grouped into one plan and confirmed once.\n",
-    );
 
   try {
     await setUpOrUpgradeWorker(ctx);
