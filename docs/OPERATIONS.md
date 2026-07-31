@@ -40,6 +40,10 @@ npx wrangler secret put API_TOKEN
 
 Update the new token on every device you want to keep syncing. Any device you skip starts getting 401s. There's no way to revoke a single device while leaving others on the old token — a real limitation of the shared-secret design, but a fine tradeoff for personal devices rather than a team.
 
+## I set up on a new machine and the wizard doesn't recognize my existing deployment — why?
+
+`worker/wrangler.toml` is gitignored, so it doesn't come along with a fresh clone — from the wizard's perspective, a new machine looks unconfigured even though your Worker/D1/Pages are still live. `npm run wizard:status` shows your existing D1 databases and Pages projects (both listable account-wide), but `wrangler` has no equivalent command to list Workers, so you'll need to supply your existing Worker's name yourself — from memory, the Cloudflare dashboard's Workers & Pages section, or via `npm run wizard:deploy -- --worker-name=<name>`. The wizard checks whether that name already has deployments before deploying and warns before redeploying over it, so this is safe to get slightly wrong.
+
 ## Can other people see or use my deployment?
 
 Only if they have your Worker URL and your API token. There's no accounts system — it's designed for one person's own devices.
