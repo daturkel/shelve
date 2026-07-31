@@ -42,7 +42,7 @@ Update the new token on every device you want to keep syncing. Any device you sk
 
 ## I set up on a new machine and the wizard doesn't recognize my existing deployment — why?
 
-`worker/wrangler.toml` is gitignored, so it doesn't come along with a fresh clone — from the wizard's perspective, a new machine looks unconfigured even though your Worker/D1/Pages are still live. `npm run wizard:status` shows your existing D1 databases and Pages projects (both listable account-wide), but `wrangler` has no equivalent command to list Workers, so you'll need to supply your existing Worker's name yourself — from memory, the Cloudflare dashboard's Workers & Pages section, or via `npm run wizard:deploy -- --worker-name=<name>`. Before deploying, the wizard checks whether that name already has deployments and, if so, warns (or asks you to confirm) before redeploying over it — so if you get the name wrong, the worst case is a new Worker under the wrong name, not a silent overwrite of your real one.
+`worker/wrangler.toml` is gitignored, so it doesn't come along with a fresh clone — from the wizard's perspective, a new machine looks unconfigured even though your Worker/D1/Pages are still live. `npm run wizard:status` shows your existing D1 databases and Pages projects (both listable account-wide), but `wrangler` has no equivalent command to list Workers, so you'll need to supply your existing Worker's name yourself — from memory, the Cloudflare dashboard's Workers & Pages section, or via `npm run wizard:deploy -- --worker-name=<name>`. Before deploying, the wizard checks whether that name already has deployments — if so, it asks you to confirm (or warns, under `--yes`) before redeploying over it.
 
 ## Can other people see or use my deployment?
 
