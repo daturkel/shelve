@@ -5,6 +5,13 @@ on:
     branches: [main]
   pull_request:
 
+# None of these jobs push commits, comment on PRs, or otherwise write back
+# to the repo/API — checkout, build, test, and upload-artifact all work
+# fine with read-only access, so pin the token down to that instead of
+# leaving it at whatever the org/repo default happens to be.
+permissions:
+  contents: read
+
 jobs:
   typecheck-and-test:
     runs-on: ubuntu-latest
