@@ -74,10 +74,10 @@ export const webStore: Store = {
 
 /** Reload in-memory state and re-render when another same-origin tab
  * changes the store — closes the "silently diverged with zero feedback
- * until a manual reload" gap for concurrent tabs left open (see
- * docs/KNOWN_GAPS.md). Not full conflict merging: two tabs saving within the
- * same instant still last-write-wins at the storage layer, same failure
- * class as the extension's analogous two-newtab-windows risk. */
+ * until a manual reload" gap for concurrent tabs left open. Not full
+ * conflict merging: two tabs saving within the same instant still
+ * last-write-wins at the storage layer, same failure class as the
+ * extension's analogous two-newtab-windows risk. */
 export function onRemoteChange(listener: (key: string) => void): void {
   channel.addEventListener("message", (ev: MessageEvent<{ key: string }>) => listener(ev.data.key));
 }

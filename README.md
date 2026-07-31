@@ -16,7 +16,7 @@ No accounts system, no arbitrary size limits, and no third party (not even the d
 
 - **Save tabs into folders** from a full-page folder browser (also your new tab page, optionally) or the toolbar popup — save the current tab, save every tab in the window, or drag a tab in from the live "open tabs" panel. _(Extension only — these need real browser-extension access.)_
   Saving is non-destructive: the original tab stays open.
-- **Browse and organize from any browser**, including your phone, via the web app — create/rename/delete/move folders and links, search, trash/restore, drag-and-drop reordering on desktop (same underlying interaction as the extension; not usable via touch yet — see [docs/KNOWN_GAPS.md](docs/KNOWN_GAPS.md)).
+- **Browse and organize from any browser**, including your phone, via the web app — create/rename/delete/move folders and links, search, trash/restore, drag-and-drop reordering on desktop (same underlying interaction as the extension; not usable via touch yet).
 - **Sync across your devices** through your own Worker + D1 backend.
   Last-write-wins on conflicts; deletes are soft, so a sync can never destroy your data — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for why.
 - **Organize** with workspaces → folders → entries — create, rename, delete (cascading, restorable from trash), and reorder at every level via drag-and-drop — plus search and collapsible folders.
@@ -25,7 +25,7 @@ No accounts system, no arbitrary size limits, and no third party (not even the d
 ## Status
 
 Functional, pre-1.0.
-The core save/sync/organize workflow works end-to-end and is unit- and integration-tested on both the extension and the optional web app; a few nice-to-haves (tags, touch-friendly drag-and-drop and PWA installability on the web app) are still open — see [docs/KNOWN_GAPS.md](docs/KNOWN_GAPS.md).
+The core save/sync/organize workflow works end-to-end and is unit- and integration-tested on both the extension and the optional web app; a few nice-to-haves (tags, touch-friendly drag-and-drop and PWA installability on the web app) are still open — see the [open issues](https://github.com/daturkel/shelve/issues).
 
 ## Quickstart
 
@@ -50,7 +50,7 @@ For the full walkthrough (each step explained, or doing it by hand instead of vi
 - [docs/SETUP.md](docs/SETUP.md) — deploying and upgrading, wizard or by hand
 - [docs/OPERATIONS.md](docs/OPERATIONS.md) — day-two questions: multiple devices, Toby migration, lost tokens, revoking access, emergency restore
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — data model, sync design, repo layout
-- [docs/KNOWN_GAPS.md](docs/KNOWN_GAPS.md) — what's missing or incomplete right now
+- [Open issues](https://github.com/daturkel/shelve/issues) — what's missing or incomplete right now
 - [CHANGELOG.md](CHANGELOG.md) — what changed, release by release
 - [docs/RELEASING.md](docs/RELEASING.md) — cutting a release (maintainer-facing)
 

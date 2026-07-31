@@ -1,6 +1,6 @@
 # Setup
 
-Deploying and upgrading Shelve — the wizard-driven path and the by-hand equivalent, side by side. Both end up in the same place; start with the wizard and drop to manual commands if it hits a case it doesn't handle (see [KNOWN_GAPS.md](KNOWN_GAPS.md)).
+Deploying and upgrading Shelve — the wizard-driven path and the by-hand equivalent, side by side. Both end up in the same place; start with the wizard and drop to manual commands if it hits a case it doesn't handle.
 
 ## Prerequisites
 
@@ -90,7 +90,7 @@ Open the printed Pages URL, go to Settings, and enter the same Worker URL/token 
 
 Re-run the same `wrangler pages deploy` command any time you want to push a new build — nothing auto-deploys. Make sure the Pages project's production branch matches what you deploy from (Cloudflare dashboard → Pages → your project → Settings → Builds & deployments), or your stable `<project>.pages.dev` URL keeps serving whatever was last deployed to that branch instead of your latest build.
 
-The web app's data is local-first (IndexedDB) and syncs through your Worker like another device — see [KNOWN_GAPS.md](KNOWN_GAPS.md) for what's different from the extension (no touch drag-and-drop, no PWA support yet).
+The web app's data is local-first (IndexedDB) and syncs through your Worker like another device — a couple of things are still different from the extension (no touch drag-and-drop, no PWA support yet).
 
 ## Upgrading
 

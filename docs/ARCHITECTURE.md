@@ -72,7 +72,7 @@ CREATE TABLE entries (
 );
 ```
 
-`position` at every level supports drag-and-drop ordering. The `default` workspace uses a fixed id (not a random UUID) so every fresh device converges on the same "Home" workspace instead of creating duplicates on first sync — see [KNOWN_GAPS.md](KNOWN_GAPS.md) for the one edge case this causes.
+`position` at every level supports drag-and-drop ordering. The `default` workspace uses a fixed id (not a random UUID) so every fresh device converges on the same "Home" workspace instead of creating duplicates on first sync — its `updated_at` is stamped `0`, not the real creation time, so this placeholder can never out-recency (and resurrect) a genuine delete of that same id from another device.
 
 The "open tabs" panel (extension only) has no schema — it's rendered live from `chrome.tabs.query()`, never stored.
 
@@ -152,7 +152,6 @@ shelve/
     SETUP.md
     OPERATIONS.md
     ARCHITECTURE.md              # this file
-    KNOWN_GAPS.md
     RELEASING.md
   README.md
   CHANGELOG.md
