@@ -1,19 +1,27 @@
-import { fetchMock } from "cloudflare:test";
-import { beforeAll, afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchLinkMetadata, handleLinkMetadata } from "./linkMetadata";
 
-beforeAll(() => {
-  fetchMock.activate();
-  fetchMock.disableNetConnect();
+// fetchMock from "cloudflare:test" was removed in @cloudflare/vitest-pool-workers
+// v0.13+ (the Vitest 4 rewrite) — mocking globalThis.fetch directly is the
+// replacement the migration guide recommends.
+let fetchSpy: ReturnType<typeof vi.spyOn>;
+
+beforeEach(() => {
+  fetchSpy = vi.spyOn(globalThis, "fetch");
 });
 
-afterEach(() => fetchMock.assertNoPendingInterceptors());
+afterEach(() => fetchSpy.mockRestore());
 
 function mockHtml(origin: string, path: string, html: string, opts: { status?: number; contentType?: string } = {}) {
-  fetchMock
-    .get(origin)
-    .intercept({ path, method: "GET" })
-    .reply(opts.status ?? 200, html, { headers: { "content-type": opts.contentType ?? "text/html" } });
+  const expectedUrl = `${origin}${path}`;
+  fetchSpy.mockImplementation(async (input: RequestInfo | URL) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+    if (url !== expectedUrl) throw new Error(`Unexpected fetch to ${url}, expected ${expectedUrl}`);
+    return new Response(html, {
+      status: opts.status ?? 200,
+      headers: { "content-type": opts.contentType ?? "text/html" },
+    });
+  });
 }
 
 describe("fetchLinkMetadata", () => {

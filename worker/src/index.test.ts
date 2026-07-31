@@ -1,6 +1,6 @@
 import { SCHEMA_VERSION } from "@shelve/shared";
-import { env, SELF, fetchMock } from "cloudflare:test";
-import { beforeAll, afterEach, describe, expect, it } from "vitest";
+import { env, SELF } from "cloudflare:test";
+import { beforeAll, afterEach, describe, expect, it, vi } from "vitest";
 import { WORKER_VERSION } from "./version";
 import worker, { type Env } from "./index";
 // @ts-expect-error -- raw text import, handled by the vite/esbuild layer
@@ -25,14 +25,13 @@ beforeAll(async () => {
     .map((s) => s.trim())
     .filter(Boolean);
   await env.DB.batch(statements.map((s) => env.DB.prepare(s)));
-
-  // Only /link-metadata makes an outbound fetch() — mocked here (rather than
-  // left to hit the real network) so those tests are hermetic and fast.
-  fetchMock.activate();
-  fetchMock.disableNetConnect();
 });
 
-afterEach(() => fetchMock.assertNoPendingInterceptors());
+// Only /link-metadata makes an outbound fetch() — mocked here (rather than
+// left to hit the real network) so those tests are hermetic and fast. SELF's
+// worker runs in the same isolate as the test file, so mocking globalThis.fetch
+// here applies to it too.
+afterEach(() => vi.restoreAllMocks());
 
 function authedHeaders(token: string): HeadersInit {
   return { Authorization: `Bearer ${token}` };
@@ -397,12 +396,20 @@ describe("/link-metadata", () => {
   });
 
   it("returns extracted metadata with CORS headers for a valid, authenticated request", async () => {
-    fetchMock
-      .get("https://example.com")
-      .intercept({ path: "/page", method: "GET" })
-      .reply(200, `<html><head><title>Example Page</title></head></html>`, {
-        headers: { "content-type": "text/html" },
-      });
+    // The Response must be built inside the mock implementation, not
+    // hoisted above as a pre-built value: workerd ties I/O objects (like a
+    // Response's body stream) to the request context they were created in,
+    // and SELF.fetch() runs its handler in a different request context than
+    // this test body — a Response built here up front would trip "Cannot
+    // perform I/O on behalf of a different request" once fetchLinkMetadata
+    // tries to read its body over there.
+    vi.spyOn(globalThis, "fetch").mockImplementation(
+      async () =>
+        new Response(`<html><head><title>Example Page</title></head></html>`, {
+          status: 200,
+          headers: { "content-type": "text/html" },
+        }),
+    );
 
     const res = await SELF.fetch(urlFor("https://example.com/page"), { headers: authedHeaders(TOKEN) });
     expect(res.status).toBe(200);

@@ -7,6 +7,21 @@ export interface Env {
   API_TOKEN: string;
 }
 
+// `env` from "cloudflare:test" is typed as the ambient `Cloudflare.Env`
+// (empty by default — normally populated by `wrangler types` from
+// wrangler.toml, which is gitignored/per-developer here). Merging our own
+// `Env` into it directly keeps the test's `env.DB`/`env.API_TOKEN` access
+// typed without depending on that generated, environment-specific file.
+// (Aliased to avoid `Env` inside `namespace Cloudflare` below resolving to
+// itself instead of this module's `Env`.)
+type WorkerEnv = Env;
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace -- required shape for merging into Cloudflare's ambient Env type
+  namespace Cloudflare {
+    interface Env extends WorkerEnv {}
+  }
+}
+
 function isAuthorized(request: Request, env: Env): boolean {
   const header = request.headers.get("Authorization");
   if (!header?.startsWith("Bearer ")) return false;

@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Security
+
+- Cleared all Dependabot-flagged vulnerabilities in devDependencies: `postcss` (path traversal via source-map auto-loading, extension's `vite`) bumped in place, and the whole `sharp`/`undici`/`ws`/`wrangler` chain (pulled in transitively via `@cloudflare/vitest-pool-workers`'s pinned old `wrangler`/`miniflare`) cleared by upgrading `@cloudflare/vitest-pool-workers` to `^0.20.1` and `wrangler` to `^4.118.0` in the worker workspace. That vitest-pool-workers version requires Vitest 4, so `vitest` was bumped to `^4.1.10` across `core`/`web`/`worker` (the extension workspace has no dependency on vitest-pool-workers and stays on 3.x). The Vitest 4 rewrite of vitest-pool-workers replaced `defineWorkersConfig`/`defineWorkersProject` with a `cloudflareTest()` Vitest plugin (`worker/vitest.config.ts`) and removed the `fetchMock` export from `"cloudflare:test"` — worker tests now mock `globalThis.fetch` directly instead (`worker/src/index.test.ts`, `worker/src/linkMetadata.test.ts`), being careful to build the mocked `Response` lazily inside the mock rather than hoisted above the call, since workerd rejects reading a response body across the request-context boundary between the test body and `SELF.fetch()`'s own request. `worker/tsconfig.json`'s `types` entry and `env.DB` typing in `worker/src/index.test.ts` needed corresponding updates for the new package's type layout.
+
 ### Changed
 
 - `docs/KNOWN_GAPS.md` is gone — each of its entries is now a tracked GitHub issue instead, so gaps can be assigned/worked individually rather than living in a flat doc list. References to it elsewhere (README, SETUP.md, ARCHITECTURE.md, this file's own historical entries) were removed or repointed at the issue tracker.
