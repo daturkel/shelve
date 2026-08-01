@@ -100,6 +100,29 @@ const COLUMNS: Record<ResourceKind, string[]> = {
   ],
 };
 
+// NOT NULL columns (besides `id`/`updated_at`, checked separately above/below)
+// per kind, per worker/migrations/0001_init.sql. Catches a malformed body
+// with a clean 400 instead of letting it fall through to D1's constraint
+// violation, which surfaces to the client as an opaque 500.
+const REQUIRED_FIELDS: Record<ResourceKind, Array<{ field: string; type: "string" | "number" }>> = {
+  workspaces: [
+    { field: "name", type: "string" },
+    { field: "position", type: "number" },
+    { field: "created_at", type: "number" },
+  ],
+  folders: [
+    { field: "workspace_id", type: "string" },
+    { field: "name", type: "string" },
+    { field: "position", type: "number" },
+    { field: "created_at", type: "number" },
+  ],
+  entries: [
+    { field: "folder_id", type: "string" },
+    { field: "position", type: "number" },
+    { field: "created_at", type: "number" },
+  ],
+};
+
 async function upsertResource(
   db: D1Database,
   kind: ResourceKind,
@@ -115,6 +138,14 @@ async function upsertResource(
   const updatedAt = body.updated_at;
   if (typeof updatedAt !== "number") {
     return new Response("updated_at is required and must be a number", { status: 400 });
+  }
+  for (const { field, type } of REQUIRED_FIELDS[kind]) {
+    if (typeof body[field] !== type) {
+      return new Response(`${field} is required and must be a ${type}`, { status: 400 });
+    }
+  }
+  if (kind === "entries" && body.url == null && body.note == null) {
+    return new Response("entries require at least one of url or note", { status: 400 });
   }
 
   const existing = await db
@@ -156,7 +187,13 @@ async function deleteResource(db: D1Database, kind: ResourceKind, id: string): P
   // field, so the deletion itself propagates on the next sync without any
   // special-cased tombstone bookkeeping. Content is retained, so a future
   // trash view is just "rows where deleted_at IS NOT NULL".
-  await db.prepare(`UPDATE ${table} SET deleted_at = ?, updated_at = ? WHERE id = ?`).bind(now, now, id).run();
+  const result = await db
+    .prepare(`UPDATE ${table} SET deleted_at = ?, updated_at = ? WHERE id = ?`)
+    .bind(now, now, id)
+    .run();
+  if (result.meta.changes === 0) {
+    return new Response("Not found", { status: 404 });
+  }
   return Response.json({ ok: true });
 }
 

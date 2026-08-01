@@ -17,6 +17,7 @@ export function buildToolbar(ctx: AppContext): HTMLElement {
   railToggle.className = "icon-btn" + (ctx.uiState.leftCollapsed ? "" : " icon-btn-rail-open");
   railToggle.textContent = "☰";
   railToggle.title = "Toggle workspaces";
+  railToggle.setAttribute("aria-label", "Toggle workspaces");
   railToggle.onclick = async () => {
     ctx.uiState.leftCollapsed = !ctx.uiState.leftCollapsed;
     await ctx.persistUiState();
@@ -64,18 +65,22 @@ export function buildToolbar(ctx: AppContext): HTMLElement {
   const { status, lastSyncedAt } = getSyncStatus();
   const syncDot = document.createElement("div");
   syncDot.className = `sync-status sync-status-${status}`;
-  syncDot.title =
+  syncDot.setAttribute("role", "status");
+  const syncStatusText =
     status === "unconfigured"
       ? "Sync not configured — see Settings"
       : status === "connected"
         ? `Synced${lastSyncedAt ? ` — last synced ${formatRelativeTime(lastSyncedAt)}` : ""}`
         : `Sync error${lastSyncedAt ? ` — last synced ${formatRelativeTime(lastSyncedAt)}` : " — never synced"}`;
+  syncDot.title = syncStatusText;
+  syncDot.setAttribute("aria-label", syncStatusText);
   toolbar.appendChild(syncDot);
 
   const settingsBtn = document.createElement("button");
   settingsBtn.className = "icon-btn";
   settingsBtn.textContent = "⚙";
   settingsBtn.title = "Settings";
+  settingsBtn.setAttribute("aria-label", "Settings");
   settingsBtn.onclick = () => ctx.openSettings();
   toolbar.appendChild(settingsBtn);
 
@@ -83,6 +88,7 @@ export function buildToolbar(ctx: AppContext): HTMLElement {
   tabsToggle.className = "icon-btn";
   tabsToggle.textContent = "⧉";
   tabsToggle.title = "Toggle open tabs";
+  tabsToggle.setAttribute("aria-label", "Toggle open tabs");
   tabsToggle.onclick = async () => {
     ctx.uiState.rightCollapsed = !ctx.uiState.rightCollapsed;
     await ctx.persistUiState();

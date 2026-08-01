@@ -93,6 +93,8 @@ async function render() {
 
   const workerStatus = document.createElement("div");
   workerStatus.className = "status";
+  workerStatus.setAttribute("role", "status");
+  workerStatus.setAttribute("aria-live", "polite");
   connectForm.appendChild(workerStatus);
 
   function setWorkerStatus(content: string | (string | Node)[], kind: "" | "success" | "error" = "") {
@@ -153,6 +155,7 @@ async function render() {
     btn.type = "button";
     btn.className = "theme-toggle-btn" + (uiState.theme === value ? " active" : "");
     btn.textContent = label;
+    btn.setAttribute("aria-pressed", String(uiState.theme === value));
     // Applies immediately (rather than waiting for the Save button, which
     // only persists Worker URL/token) and persists to uiState right away,
     // same as the checkboxes below — re-renders so the active-button
@@ -221,6 +224,8 @@ async function render() {
 
   const status = document.createElement("div");
   status.className = "status";
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
   connectForm.appendChild(status);
 
   connectForm.onsubmit = async (ev) => {
@@ -297,6 +302,8 @@ async function render() {
 
   const dataStatus = document.createElement("div");
   dataStatus.className = "status";
+  dataStatus.setAttribute("role", "status");
+  dataStatus.setAttribute("aria-live", "polite");
 
   function setDataStatus(text: string, kind: "" | "success" | "error" = "") {
     dataStatus.textContent = text;

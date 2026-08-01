@@ -12,6 +12,10 @@ export function buildFaviconEl(url: string | null | undefined): HTMLElement {
     const icon = document.createElement("img");
     icon.className = "favicon";
     icon.src = url;
+    // Decorative: the entry/tab title text right next to it already
+    // conveys the site identity, so an empty alt (not a missing one, which
+    // screen readers fall back to reading the src URL for) is correct here.
+    icon.alt = "";
     // A manually-added link's favicon.ico guess (linkMetadata.ts) often
     // doesn't exist — swap to the same placeholder used for no-favicon
     // entries rather than showing a broken-image icon.

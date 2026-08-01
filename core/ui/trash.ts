@@ -192,11 +192,17 @@ function badgeLabel(kind: ResourceKind): string {
 
 // ---------- Row builders ----------
 
-function buildCheckbox(ctx: AppContext, key: string, onToggle: (checked: boolean) => void): HTMLInputElement {
+function buildCheckbox(
+  ctx: AppContext,
+  key: string,
+  label: string,
+  onToggle: (checked: boolean) => void,
+): HTMLInputElement {
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
   checkbox.className = "trash-item-checkbox";
   checkbox.checked = ctx.selectedTrashIds.has(key);
+  checkbox.setAttribute("aria-label", `Select ${label}`);
   checkbox.onclick = (ev) => ev.stopPropagation();
   checkbox.onchange = () => onToggle(checkbox.checked);
   return checkbox;
@@ -210,7 +216,7 @@ function buildTopLevelRowEl(ctx: AppContext, item: TrashItem): HTMLElement {
   const descendants = item.kind === "entry" ? [] : item.descendants;
 
   row.appendChild(
-    buildCheckbox(ctx, key, (checked) => {
+    buildCheckbox(ctx, key, item.name, (checked) => {
       const keys = [key, ...descendants.map((d) => trashKey(d.kind, d.id))];
       for (const k of keys) {
         if (checked) ctx.selectedTrashIds.add(k);
@@ -274,7 +280,7 @@ function buildLeafRowEl(ctx: AppContext, leaf: TrashLeaf, siblings: TrashLeaf[])
       ? siblings.filter((s) => s.kind === "entry" && s.folderId === leaf.id).map((s) => trashKey(s.kind, s.id))
       : [];
   row.appendChild(
-    buildCheckbox(ctx, key, (checked) => {
+    buildCheckbox(ctx, key, leaf.name, (checked) => {
       for (const k of [key, ...ownEntryKeys]) {
         if (checked) ctx.selectedTrashIds.add(k);
         else ctx.selectedTrashIds.delete(k);

@@ -1,5 +1,7 @@
 import type { LinkMetadata } from "./linkMetadata";
 
+let modalTitleCounter = 0;
+
 /** Exported so custom modal-shaped UI (e.g. the tabs-panel folder picker)
  * can build on the same overlay/box shell without duplicating it. */
 export function buildOverlay(): { overlay: HTMLElement; box: HTMLElement } {
@@ -8,10 +10,19 @@ export function buildOverlay(): { overlay: HTMLElement; box: HTMLElement } {
 
   const box = document.createElement("div");
   box.className = "modal-box";
+  box.setAttribute("role", "dialog");
+  box.setAttribute("aria-modal", "true");
   overlay.appendChild(box);
 
   document.body.appendChild(overlay);
   return { overlay, box };
+}
+
+/** Gives `heading` a unique id and points `box`'s aria-labelledby at it, so
+ * assistive tech announces the dialog's title on open. */
+function labelBoxWithHeading(box: HTMLElement, heading: HTMLElement): void {
+  heading.id = `modal-title-${modalTitleCounter++}`;
+  box.setAttribute("aria-labelledby", heading.id);
 }
 
 /** In-window replacement for window.prompt() — same result shape (string
@@ -20,12 +31,14 @@ export function buildOverlay(): { overlay: HTMLElement; box: HTMLElement } {
  * .modal-* CSS in their respective stylesheets. */
 export function showPrompt(title: string, defaultValue = ""): Promise<string | null> {
   return new Promise((resolve) => {
+    const trigger = document.activeElement as HTMLElement | null;
     const { overlay, box } = buildOverlay();
 
     const heading = document.createElement("div");
     heading.className = "modal-title";
     heading.textContent = title;
     box.appendChild(heading);
+    labelBoxWithHeading(box, heading);
 
     const input = document.createElement("input");
     input.className = "modal-input";
@@ -46,6 +59,7 @@ export function showPrompt(title: string, defaultValue = ""): Promise<string | n
 
     const cleanup = (result: string | null) => {
       overlay.remove();
+      trigger?.focus();
       resolve(result);
     };
 
@@ -74,12 +88,14 @@ export function showPrompt(title: string, defaultValue = ""): Promise<string | n
  * edited the input or submitted, it's filled in automatically. */
 export function showLinkTitlePrompt(url: string, metadata: Promise<LinkMetadata>): Promise<string | null> {
   return new Promise((resolve) => {
+    const trigger = document.activeElement as HTMLElement | null;
     const { overlay, box } = buildOverlay();
 
     const heading = document.createElement("div");
     heading.className = "modal-title";
     heading.textContent = "Title";
     box.appendChild(heading);
+    labelBoxWithHeading(box, heading);
 
     const inputRow = document.createElement("div");
     inputRow.className = "modal-input-row";
@@ -117,6 +133,7 @@ export function showLinkTitlePrompt(url: string, metadata: Promise<LinkMetadata>
     const cleanup = (result: string | null) => {
       settled = true;
       overlay.remove();
+      trigger?.focus();
       resolve(result);
     };
 
@@ -147,12 +164,14 @@ export function showLinkTitlePrompt(url: string, metadata: Promise<LinkMetadata>
  * submits (plain Enter needs to stay newline-friendly in a textarea). */
 export function showTextarea(title: string, defaultValue = ""): Promise<string | null> {
   return new Promise((resolve) => {
+    const trigger = document.activeElement as HTMLElement | null;
     const { overlay, box } = buildOverlay();
 
     const heading = document.createElement("div");
     heading.className = "modal-title";
     heading.textContent = title;
     box.appendChild(heading);
+    labelBoxWithHeading(box, heading);
 
     const textarea = document.createElement("textarea");
     textarea.className = "modal-textarea";
@@ -178,6 +197,7 @@ export function showTextarea(title: string, defaultValue = ""): Promise<string |
 
     const cleanup = (result: string | null) => {
       overlay.remove();
+      trigger?.focus();
       resolve(result);
     };
 
@@ -224,6 +244,7 @@ export function showErrorToast(message: string): void {
   dismiss.className = "shelve-toast-dismiss";
   dismiss.textContent = "✕";
   dismiss.title = "Dismiss";
+  dismiss.setAttribute("aria-label", "Dismiss");
   dismiss.onclick = () => cleanup();
   toast.appendChild(dismiss);
 
@@ -243,12 +264,14 @@ export function showErrorToast(message: string): void {
 /** In-window replacement for window.confirm(). */
 export function showConfirm(title: string, confirmLabel = "Delete"): Promise<boolean> {
   return new Promise((resolve) => {
+    const trigger = document.activeElement as HTMLElement | null;
     const { overlay, box } = buildOverlay();
 
     const heading = document.createElement("div");
     heading.className = "modal-title";
     heading.textContent = title;
     box.appendChild(heading);
+    labelBoxWithHeading(box, heading);
 
     const actions = document.createElement("div");
     actions.className = "modal-actions";
@@ -264,6 +287,7 @@ export function showConfirm(title: string, confirmLabel = "Delete"): Promise<boo
     const cleanup = (result: boolean) => {
       overlay.remove();
       document.removeEventListener("keydown", onKeydown);
+      trigger?.focus();
       resolve(result);
     };
     const onKeydown = (ev: KeyboardEvent) => {

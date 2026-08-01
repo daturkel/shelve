@@ -567,6 +567,7 @@ function buildEntryEl(ctx: AppContext, entry: Entry): HTMLElement {
   checkbox.type = "checkbox";
   checkbox.className = "entry-checkbox";
   checkbox.checked = selected;
+  checkbox.setAttribute("aria-label", `Select ${entry.title || entry.url || entry.note || "Untitled"}`);
   checkbox.onclick = (ev) => {
     ev.stopPropagation();
     if (checkbox.checked) ctx.selectedEntryIds.add(entry.id);
@@ -588,8 +589,9 @@ function buildEntryEl(ctx: AppContext, entry: Entry): HTMLElement {
   edit.title = "Rename";
   edit.onclick = async (ev) => {
     ev.stopPropagation();
-    const newTitle = await showPrompt("Rename", entry.title || entry.url || entry.note || "");
-    if (!newTitle || newTitle === entry.title) return;
+    const currentTitle = entry.title || entry.url || entry.note || "";
+    const newTitle = await showPrompt("Rename", currentTitle);
+    if (!newTitle || newTitle === currentTitle) return;
     updateEntryTitle(ctx.state, entry.id, newTitle);
     if (await ctx.rerender()) void pushResource("entries", entry);
   };
