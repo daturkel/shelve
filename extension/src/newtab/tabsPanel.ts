@@ -117,6 +117,7 @@ function buildTabItem(ctx: AppContext, tab: chrome.tabs.Tab, allTabs: chrome.tab
   checkbox.type = "checkbox";
   checkbox.className = "tab-checkbox";
   checkbox.checked = selected;
+  checkbox.setAttribute("aria-label", `Select ${tab.title || tab.url || "Untitled"}`);
   checkbox.onclick = (ev) => {
     ev.stopPropagation();
     if (tab.id === undefined) return;

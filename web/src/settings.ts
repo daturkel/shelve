@@ -103,6 +103,8 @@ export async function buildSettings(uiState: UiState, onClose: () => void): Prom
 
   const workerStatus = document.createElement("div");
   workerStatus.className = "status";
+  workerStatus.setAttribute("role", "status");
+  workerStatus.setAttribute("aria-live", "polite");
   connectForm.appendChild(workerStatus);
 
   function setWorkerStatus(content: string | (string | Node)[], kind: "" | "success" | "error" = "") {
@@ -158,12 +160,17 @@ export async function buildSettings(uiState: UiState, onClose: () => void): Prom
     btn.type = "button";
     btn.className = "theme-toggle-btn" + (uiState.theme === value ? " active" : "");
     btn.textContent = label;
+    btn.setAttribute("aria-pressed", String(uiState.theme === value));
     btn.onclick = async () => {
       uiState.theme = value;
       await setUiState(uiState);
       applyTheme(uiState.theme);
-      for (const sibling of Array.from(themeToggle.children)) sibling.classList.remove("active");
+      for (const sibling of Array.from(themeToggle.children)) {
+        sibling.classList.remove("active");
+        sibling.setAttribute("aria-pressed", "false");
+      }
       btn.classList.add("active");
+      btn.setAttribute("aria-pressed", "true");
     };
     themeToggle.appendChild(btn);
   }
@@ -189,6 +196,8 @@ export async function buildSettings(uiState: UiState, onClose: () => void): Prom
 
   const status = document.createElement("div");
   status.className = "status";
+  status.setAttribute("role", "status");
+  status.setAttribute("aria-live", "polite");
   connectForm.appendChild(status);
 
   connectForm.onsubmit = async (ev) => {
@@ -274,6 +283,8 @@ export async function buildSettings(uiState: UiState, onClose: () => void): Prom
 
   const dataStatus = document.createElement("div");
   dataStatus.className = "status";
+  dataStatus.setAttribute("role", "status");
+  dataStatus.setAttribute("aria-live", "polite");
 
   function setDataStatus(text: string, kind: "" | "success" | "error" = "") {
     dataStatus.textContent = text;
