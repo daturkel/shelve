@@ -203,6 +203,27 @@ describe("upsert-by-recency", () => {
     const res = await put("/folders/f-4", { id: "different-id", workspace_id: "ws-x", updated_at: 1 });
     expect(res.status).toBe(400);
   });
+
+  it("rejects a body missing a required field with a 400, not a 500 from a D1 constraint violation", async () => {
+    const res = await put("/workspaces/ws-missing-name", { position: 0, created_at: 1, updated_at: 1 });
+    expect(res.status).toBe(400);
+
+    const stateRes = await SELF.fetch("https://worker.test/state", { headers: authedHeaders(TOKEN) });
+    const state = (await stateRes.json()) as { workspaces: Array<{ id: string }> };
+    expect(state.workspaces.find((w) => w.id === "ws-missing-name")).toBeUndefined();
+  });
+
+  it("rejects an entry with neither url nor note", async () => {
+    await createWorkspace("ws-x");
+    await createFolder("f-no-content", "ws-x");
+    const res = await put("/entries/e-no-content", {
+      folder_id: "f-no-content",
+      position: 0,
+      created_at: 1,
+      updated_at: 1,
+    });
+    expect(res.status).toBe(400);
+  });
 });
 
 describe("DELETE", () => {
@@ -277,6 +298,14 @@ describe("DELETE", () => {
     const state = (await stateRes.json()) as { workspaces: Array<{ id: string; deleted_at: number | null }> };
     const keep = state.workspaces.find((w) => w.id === "ws-keep");
     expect(keep?.deleted_at).toBeNull();
+  });
+
+  it("404s a nonexistent id, rather than reporting a fake success", async () => {
+    const res = await SELF.fetch("https://worker.test/workspaces/does-not-exist", {
+      method: "DELETE",
+      headers: authedHeaders(TOKEN),
+    });
+    expect(res.status).toBe(404);
   });
 });
 
