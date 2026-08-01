@@ -15,6 +15,7 @@ import { buildFaviconEl } from "../lib/favicon";
 import { createFolderInteractive } from "../lib/actions";
 import { normalizeUrl } from "../lib/url";
 import { showFolderPickerModal } from "./folderPicker";
+import { buildIconButton } from "./domHelpers";
 import type { AppContext } from "./context";
 
 const TAB_MIME = "application/x-shelve-tab";
@@ -291,34 +292,32 @@ function buildFolderSection(ctx: AppContext, folder: Folder, query: string): HTM
   // Positioned right after the name (not pushed to the far edge of the
   // bar) so revealing it on hover doesn't require crossing a long
   // invisible strip to reach it.
-  const edit = document.createElement("div");
-  edit.className = "folder-edit";
-  edit.textContent = "✎";
-  edit.title = "Rename folder";
-  edit.onclick = async (ev) => {
-    ev.stopPropagation();
-    await renameFolderInteractive();
-  };
+  const edit = buildIconButton({
+    className: "folder-edit",
+    text: "✎",
+    title: "Rename folder",
+    onActivate: renameFolderInteractive,
+  });
   header.appendChild(edit);
 
-  const del = document.createElement("div");
-  del.className = "folder-delete";
-  del.textContent = "(delete)";
   // Without its own title, this inherits the header's "Click to
   // expand/collapse" tooltip (title attributes cascade to children that
   // don't set their own) — confusing since hovering delete looked like it
   // would toggle collapse instead.
-  del.title = "Delete folder and its entries";
-  del.onclick = async (ev) => {
-    ev.stopPropagation();
-    const ok = await showConfirm(`Delete folder "${folder.name}" and its entries?`);
-    if (!ok) return;
-    const { entries: cascadedEntries } = deleteFolder(ctx.state, folder.id);
-    if (await ctx.rerender()) {
-      void pushDelete("folders", folder.id);
-      for (const entry of cascadedEntries) void pushDelete("entries", entry.id);
-    }
-  };
+  const del = buildIconButton({
+    className: "folder-delete",
+    text: "(delete)",
+    title: "Delete folder and its entries",
+    onActivate: async () => {
+      const ok = await showConfirm(`Delete folder "${folder.name}" and its entries?`);
+      if (!ok) return;
+      const { entries: cascadedEntries } = deleteFolder(ctx.state, folder.id);
+      if (await ctx.rerender()) {
+        void pushDelete("folders", folder.id);
+        for (const entry of cascadedEntries) void pushDelete("entries", entry.id);
+      }
+    },
+  });
   header.appendChild(del);
 
   // Folder reordering: drag one folder's header to start the drag; the
@@ -583,29 +582,29 @@ function buildEntryEl(ctx: AppContext, entry: Entry): HTMLElement {
   title.textContent = entry.title || entry.url || entry.note || "Untitled";
   el.appendChild(title);
 
-  const edit = document.createElement("div");
-  edit.className = "entry-edit";
-  edit.textContent = "✎";
-  edit.title = "Rename";
-  edit.onclick = async (ev) => {
-    ev.stopPropagation();
-    const currentTitle = entry.title || entry.url || entry.note || "";
-    const newTitle = await showPrompt("Rename", currentTitle);
-    if (!newTitle || newTitle === currentTitle) return;
-    updateEntryTitle(ctx.state, entry.id, newTitle);
-    if (await ctx.rerender()) void pushResource("entries", entry);
-  };
+  const edit = buildIconButton({
+    className: "entry-edit",
+    text: "✎",
+    title: "Rename",
+    onActivate: async () => {
+      const currentTitle = entry.title || entry.url || entry.note || "";
+      const newTitle = await showPrompt("Rename", currentTitle);
+      if (!newTitle || newTitle === currentTitle) return;
+      updateEntryTitle(ctx.state, entry.id, newTitle);
+      if (await ctx.rerender()) void pushResource("entries", entry);
+    },
+  });
   el.appendChild(edit);
 
-  const del = document.createElement("div");
-  del.className = "entry-delete";
-  del.textContent = "✕";
-  del.onclick = async (ev) => {
-    ev.stopPropagation();
-    deleteEntry(ctx.state, entry.id);
-    ctx.selectedEntryIds.delete(entry.id);
-    if (await ctx.rerender()) void pushDelete("entries", entry.id);
-  };
+  const del = buildIconButton({
+    className: "entry-delete",
+    text: "✕",
+    onActivate: async () => {
+      deleteEntry(ctx.state, entry.id);
+      ctx.selectedEntryIds.delete(entry.id);
+      if (await ctx.rerender()) void pushDelete("entries", entry.id);
+    },
+  });
   el.appendChild(del);
 
   // tabActions.open rather than window.open: the extension's chrome.tabs

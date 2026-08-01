@@ -1,6 +1,7 @@
 import { createWorkspace, renameWorkspace, deleteWorkspace, pickDefaultWorkspaceId } from "../lib/storage";
 import { pushResource, pushDelete } from "../lib/sync";
 import { showPrompt, showConfirm } from "../lib/modal";
+import { buildIconButton } from "./domHelpers";
 import type { AppContext } from "./context";
 
 // ---------- Left rail: workspace switcher ----------
@@ -46,26 +47,26 @@ export function buildRail(ctx: AppContext): HTMLElement {
     // UI expects (or can recover from) a workspace-less state, matching
     // deleteWorkspace's own refusal to allow it at the data layer.
     if (workspaces.length > 1) {
-      const del = document.createElement("span");
-      del.className = "rail-item-delete";
-      del.textContent = "×";
-      del.title = "Delete workspace and everything in it";
-      del.onclick = async (ev) => {
-        ev.stopPropagation();
-        const ok = await showConfirm(`Delete workspace "${ws.name}" and everything in it?`);
-        if (!ok) return;
-        const { workspace, folders, entries } = deleteWorkspace(ctx.state, ws.id);
-        if (ctx.activeWorkspaceId === ws.id) {
-          ctx.activeWorkspaceId = pickDefaultWorkspaceId(ctx.state);
-          ctx.uiState.lastActiveWorkspaceId = ctx.activeWorkspaceId;
-          await ctx.persistUiState();
-        }
-        if (await ctx.rerender()) {
-          void pushDelete("workspaces", workspace.id);
-          for (const folder of folders) void pushDelete("folders", folder.id);
-          for (const entry of entries) void pushDelete("entries", entry.id);
-        }
-      };
+      const del = buildIconButton({
+        className: "rail-item-delete",
+        text: "×",
+        title: "Delete workspace and everything in it",
+        onActivate: async () => {
+          const ok = await showConfirm(`Delete workspace "${ws.name}" and everything in it?`);
+          if (!ok) return;
+          const { workspace, folders, entries } = deleteWorkspace(ctx.state, ws.id);
+          if (ctx.activeWorkspaceId === ws.id) {
+            ctx.activeWorkspaceId = pickDefaultWorkspaceId(ctx.state);
+            ctx.uiState.lastActiveWorkspaceId = ctx.activeWorkspaceId;
+            await ctx.persistUiState();
+          }
+          if (await ctx.rerender()) {
+            void pushDelete("workspaces", workspace.id);
+            for (const folder of folders) void pushDelete("folders", folder.id);
+            for (const entry of entries) void pushDelete("entries", entry.id);
+          }
+        },
+      });
       item.appendChild(del);
     }
 

@@ -75,11 +75,17 @@ body {
   cursor: pointer;
   font-size: 14px;
   line-height: 1;
-  visibility: hidden;
+  /* opacity + pointer-events, not visibility: hidden — a visibility:hidden
+   * element is dropped from the tab order, which would make this
+   * unreachable by keyboard even with tabindex="0". */
+  opacity: 0;
+  pointer-events: none;
   flex-shrink: 0;
 }
-.rail-item:hover .rail-item-delete {
-  visibility: visible;
+.rail-item:hover .rail-item-delete,
+.rail-item-delete:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 .rail-item-delete:hover {
   color: var(--text);
@@ -418,11 +424,17 @@ body {
   color: var(--text-dim);
   cursor: pointer;
   font-size: 12px;
-  visibility: hidden;
+  /* opacity + pointer-events, not visibility: hidden — see the same note
+   * on .rail-item-delete. */
+  opacity: 0;
+  pointer-events: none;
 }
 .folder-header:hover .folder-edit,
-.folder-header:hover .folder-delete {
-  visibility: visible;
+.folder-header:hover .folder-delete,
+.folder-edit:focus-visible,
+.folder-delete:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 .folder-edit:hover,
 .folder-delete:hover {
@@ -513,7 +525,10 @@ body {
 .entry .entry-edit,
 .entry .entry-delete {
   color: var(--text-dim);
-  visibility: hidden;
+  /* opacity + pointer-events, not visibility: hidden — see the same note
+   * on .rail-item-delete. */
+  opacity: 0;
+  pointer-events: none;
   font-size: 12px;
   flex-shrink: 0;
   cursor: pointer;
@@ -522,8 +537,11 @@ body {
   margin-left: auto;
 }
 .entry:hover .entry-edit,
-.entry:hover .entry-delete {
-  visibility: visible;
+.entry:hover .entry-delete,
+.entry-edit:focus-visible,
+.entry-delete:focus-visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 .entry .entry-edit:hover,
 .entry .entry-delete:hover {
