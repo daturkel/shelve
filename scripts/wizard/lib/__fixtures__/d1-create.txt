@@ -1,0 +1,13 @@
+
+ ⛅️ wrangler 4.118.0
+-------------------
+
+✅ Successfully created DB 'shelve-db' in region ENAM
+Created your new D1 database.
+
+{
+  "uuid": "00000000-0000-0000-0000-000000000002",
+  "name": "shelve-db",
+  "created_at": "2026-01-01T00:00:00.000Z",
+  "version": "production"
+}

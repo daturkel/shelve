@@ -16,6 +16,7 @@ import { ensurePagesProjectExists, runCommand, warnIfNotProduction, wranglerBin,
 import { readWranglerToml, writeWranglerToml } from "./lib/wranglerToml.mjs";
 import { readWizardConfig, writeWizardConfig } from "./lib/wizardConfig.mjs";
 import { randomProjectName } from "./lib/randomName.mjs";
+import { parseWranglerJson } from "./lib/parseWranglerJson.mjs";
 import * as ui from "./lib/style.mjs";
 
 const root = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
@@ -79,13 +80,11 @@ async function setUpWorker(rl) {
     quiet: true,
   });
 
-  let existingDbs = [];
-  try {
-    const jsonStart = listOut.indexOf("[");
-    existingDbs = jsonStart === -1 ? [] : JSON.parse(listOut.slice(jsonStart));
-  } catch {
+  const parsedDbs = parseWranglerJson(listOut, "[");
+  if (parsedDbs === null) {
     ui.warn("Couldn't parse `d1 list --json` output — proceeding as if there are no existing databases.");
   }
+  const existingDbs = parsedDbs ?? [];
 
   let databaseName;
   let databaseId;
@@ -114,13 +113,8 @@ async function setUpWorker(rl) {
       capture: true,
       quiet: true,
     });
-    try {
-      const jsonStart = createOut.indexOf("{");
-      const parsed = jsonStart === -1 ? null : JSON.parse(createOut.slice(jsonStart));
-      databaseId = parsed?.uuid ?? parsed?.database_id ?? parsed?.id;
-    } catch {
-      // falls through to the error below
-    }
+    const parsed = parseWranglerJson(createOut, "{");
+    databaseId = parsed?.uuid ?? parsed?.database_id ?? parsed?.id;
     if (!databaseId) throw new Error("Couldn't find database_id in `d1 create --json`'s output — check it above.");
     ui.success(`Created database "${databaseName}" (id: ${databaseId}).`);
   }
