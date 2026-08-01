@@ -25,6 +25,33 @@ function labelBoxWithHeading(box: HTMLElement, heading: HTMLElement): void {
   box.setAttribute("aria-labelledby", heading.id);
 }
 
+/** Keeps Tab/Shift+Tab cycling within `box` instead of letting focus
+ * escape to the page behind the overlay once it reaches the last (or
+ * first, shift-tabbing) focusable element. Queries `box` fresh on every
+ * keydown rather than snapshotting focusable elements up front, since a
+ * modal can mutate its own contents after opening (e.g.
+ * showLinkTitlePrompt removes its spinner once metadata resolves). Safe
+ * to call right after buildOverlay(), before the modal's own content is
+ * appended, for exactly that reason. */
+function trapFocus(box: HTMLElement): void {
+  box.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Tab") return;
+    const focusable = Array.from(
+      box.querySelectorAll<HTMLElement>('input, textarea, button, [tabindex]:not([tabindex="-1"])'),
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (ev.shiftKey && document.activeElement === first) {
+      ev.preventDefault();
+      last.focus();
+    } else if (!ev.shiftKey && document.activeElement === last) {
+      ev.preventDefault();
+      first.focus();
+    }
+  });
+}
+
 /** In-window replacement for window.prompt() — same result shape (string
  * or null on cancel), but rendered inside the page instead of as native
  * browser chrome. Shared by newtab and popup — both load the same
@@ -33,6 +60,7 @@ export function showPrompt(title: string, defaultValue = ""): Promise<string | n
   return new Promise((resolve) => {
     const trigger = document.activeElement as HTMLElement | null;
     const { overlay, box } = buildOverlay();
+    trapFocus(box);
 
     const heading = document.createElement("div");
     heading.className = "modal-title";
@@ -90,6 +118,7 @@ export function showLinkTitlePrompt(url: string, metadata: Promise<LinkMetadata>
   return new Promise((resolve) => {
     const trigger = document.activeElement as HTMLElement | null;
     const { overlay, box } = buildOverlay();
+    trapFocus(box);
 
     const heading = document.createElement("div");
     heading.className = "modal-title";
@@ -166,6 +195,7 @@ export function showTextarea(title: string, defaultValue = ""): Promise<string |
   return new Promise((resolve) => {
     const trigger = document.activeElement as HTMLElement | null;
     const { overlay, box } = buildOverlay();
+    trapFocus(box);
 
     const heading = document.createElement("div");
     heading.className = "modal-title";
@@ -266,6 +296,7 @@ export function showConfirm(title: string, confirmLabel = "Delete"): Promise<boo
   return new Promise((resolve) => {
     const trigger = document.activeElement as HTMLElement | null;
     const { overlay, box } = buildOverlay();
+    trapFocus(box);
 
     const heading = document.createElement("div");
     heading.className = "modal-title";

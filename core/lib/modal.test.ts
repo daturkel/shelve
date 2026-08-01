@@ -120,6 +120,30 @@ describe("showConfirm", () => {
     danger.click();
     await result;
   });
+
+  it("wraps Tab from the last focusable element back to the first", async () => {
+    const result = showConfirm("Delete this?");
+    const box = latestOverlay().querySelector(".modal-box")!;
+    const buttons = box.querySelectorAll<HTMLButtonElement>(".modal-btn");
+    const [first, last] = [buttons[0], buttons[buttons.length - 1]];
+    last.focus();
+    box.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab" }));
+    expect(document.activeElement).toBe(first);
+    cancelBtn().click();
+    await result;
+  });
+
+  it("wraps Shift+Tab from the first focusable element back to the last", async () => {
+    const result = showConfirm("Delete this?");
+    const box = latestOverlay().querySelector(".modal-box")!;
+    const buttons = box.querySelectorAll<HTMLButtonElement>(".modal-btn");
+    const [first, last] = [buttons[0], buttons[buttons.length - 1]];
+    first.focus();
+    box.dispatchEvent(new KeyboardEvent("keydown", { key: "Tab", shiftKey: true }));
+    expect(document.activeElement).toBe(last);
+    cancelBtn().click();
+    await result;
+  });
 });
 
 describe("showErrorToast", () => {
