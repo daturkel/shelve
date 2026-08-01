@@ -1,0 +1,14 @@
+
+ ⛅️ wrangler 4.118.0
+-------------------
+
+[
+  {
+    "uuid": "00000000-0000-0000-0000-000000000001",
+    "name": "shelve-db",
+    "created_at": "2026-01-01T00:00:00.000Z",
+    "version": "production",
+    "num_tables": 3,
+    "file_size": 24576
+  }
+]
